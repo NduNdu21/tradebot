@@ -1,0 +1,4 @@
+oandapyV20==0.7.2
+pandas==2.3.3
+python-dotenv==1.2.1
+requests==2.32.5
