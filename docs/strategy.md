@@ -80,18 +80,31 @@ A setup with no filled leg is cancelled when any of these happens:
   - TP3 = 161.8% extension
   - Controls: fixed 1R, 2R, 3R from each leg's own entry.
 - **Friday close (variant, on/off):** when on, flatten everything at 16:00
-  New York on Friday. Pending setups survive the weekend *(proposed)*.
+  New York on Friday, at the open of the M5 candle starting 16:00 NY (bid for longs,
+  ask for shorts, plus slippage). Pending setups survive the weekend *(proposed)*,
+  but can't fill from 16:00 Friday until the market reopens *(proposed)*.
 
 ## 7. Sizing and exposure
 - Account currency is GBP, matching the practice account. Start with 10,000 GBP.
-  Risk 0.5% of current equity per leg (1% per full setup), compounding.
-- Units = risk in GBP / (stop distance in GBP per unit). EUR_USD amounts convert
-  USD → GBP at GBP_USD; GBP_JPY amounts convert JPY → GBP at GBP_JPY.
+  Both pairs share this one account, simulated on a merged M5 timeline.
+- Risk 0.5% of the **closed balance** per leg (1% per full setup), compounding.
+  Open P&L doesn't count; realised P&L and financing do.
+- Units = risk in GBP / (stop distance in GBP per unit), rounded down to a whole
+  unit; a leg that rounds to 0 is skipped. Stop distance = fill price − stop.
+  EUR_USD amounts convert USD → GBP at the GBP_USD mid; GBP_JPY amounts convert
+  JPY → GBP at the GBP_JPY mid. Sizing uses the mid at the open of the fill candle,
+  P&L the mid when it's realised.
 - Skip a leg if it would push total notional above 10× equity, or margin used
   above 50%. Margin rate is 3.33% for both pairs, the account's rate from the API.
+  Both caps count open legs on both pairs at current prices. At 3.33%, 10× notional
+  uses 33% margin, so the notional cap always binds first.
 
 ## 8. Fills and costs
-- Real bid/ask spread from the data on every fill.
+- Real bid/ask spread from the data on every fill. Longs enter at the ask and exit
+  (stop and target) at the bid; shorts the opposite.
+- **Market entries** (mode b, next H1 open) fill at the open, spread only.
+- If a fill would happen at or beyond the stop (a gap through the stop), the order
+  is cancelled instead *(proposed)*; this is §5 rule 1 on a gap.
 - **Limit orders** (entries and targets) get no slippage. If price gaps past a
   limit, it fills at the bar open when that's better than the limit.
 - **Stops and forced exits** (Friday close) pay slippage on top of the spread:
@@ -113,7 +126,10 @@ A setup with no filled leg is cancelled when any of these happens:
   fallback decision.
 - **Fill and target in one bar:** count the fill, not the target. The target
   can only be hit from the next bar on.
-- **Fill and stop in one bar:** assume the leg filled and was then stopped *(proposed)*.
+- **Fill and stop in one bar:** the leg filled and was then stopped. For a limit,
+  price must pass the entry to reach the stop, so this order is certain.
+- **One leg hits its target while the other leg fills, in one bar:** both happen.
+  The filled leg stays open; its target counts from the next bar *(proposed)*.
 
 ## 10. Evaluation protocol (pre-registered)
 - **Development:** 2016-11-14 → 2024-11-13. **Hold-out:** 2024-11-14 → 2026-11-13,

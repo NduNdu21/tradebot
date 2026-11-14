@@ -43,3 +43,18 @@
   They're all about 1%, which suggests the policy-rate model fits OANDA's pricing.
 - Account currency is GBP (practice account). Backtest runs in GBP 10,000. GBP_USD M5 downloaded for conversion only (data clean).
 - Margin rate: 3.33% for both pairs, from the API. The earlier 5% for GBP_JPY was Claude's assumption, not the owner's.
+
+## 2026-11-14 — Backtest engine (step 3)
+- `src/backtest.py`: an `Engine` simulates both pairs on one merged M5 timeline. The strategy is an object with
+  `on_h1_close(engine, pair, hour)`, called at the first M5 candle of each new hour. Orders it places are live from
+  that candle, so it can't act on prices inside the hour it's looking at.
+- The engine owns fills, exits, sizing, caps, Friday close and financing. Setup logic (levels, cancel rules, time
+  limit) stays in the strategy (step 4). One setup per pair at a time, enforced by the engine.
+- Owner's choices: one shared GBP account; size on the closed balance (not NAV); Friday flatten at the open of the
+  16:00 NY candle; units rounded down; conversion at mid.
+- Claude's proposals, marked in strategy.md: pending orders can't fill from Friday 16:00 to reopen; a fill at or
+  past the stop cancels the order; a target hit on one leg and a fill on the other in the same candle both count.
+- Financing modes (on/off/cap) compound into the balance, so each mode is a separate run.
+- Open question for step 4: whether cancel rules 1–2 (price through stop, back to extreme) are checked on M5 or at
+  H1 close. The engine currently only cancels at H1 close.
+- Speed: 8 years of dev data, both pairs, about 7 s per run, plus 2 s to load (a dummy strategy, no results recorded).
