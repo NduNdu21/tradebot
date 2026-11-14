@@ -21,6 +21,7 @@ Levels are measured from the origin (0%) toward the extreme (100%).
 ## 1. Data
 - M5 bid and ask candles from OANDA (practice API), one source, 2016-10-03 onward.
   The first six weeks only warm up ATR and swings; evaluation starts 2016-11-14.
+- GBP_USD M5 is downloaded too, only to convert EUR_USD profit and loss (USD) to GBP.
 - H1 candles are resampled from M5, not downloaded separately.
   Mid OHLC = (bid + ask) / 2, field by field.
 - ATR(14) uses H1 mid prices, Wilder smoothing *(proposed)*.
@@ -82,10 +83,12 @@ A setup with no filled leg is cancelled when any of these happens:
   New York on Friday. Pending setups survive the weekend *(proposed)*.
 
 ## 7. Sizing and exposure
-- Start with 10,000 USD. Risk 0.5% of current equity per leg (1% per full setup), compounding.
-- Units = risk in USD / (stop distance in USD per unit).
+- Account currency is GBP, matching the practice account. Start with 10,000 GBP.
+  Risk 0.5% of current equity per leg (1% per full setup), compounding.
+- Units = risk in GBP / (stop distance in GBP per unit). EUR_USD amounts convert
+  USD → GBP at GBP_USD; GBP_JPY amounts convert JPY → GBP at GBP_JPY.
 - Skip a leg if it would push total notional above 10× equity, or margin used
-  above 50% (margin rates: 3.33% EUR_USD, 5% GBP_JPY).
+  above 50%. Margin rate is 3.33% for both pairs, the account's rate from the API.
 
 ## 8. Fills and costs
 - Real bid/ask spread from the data on every fill.
@@ -94,11 +97,15 @@ A setup with no filled leg is cancelled when any of these happens:
 - **Stops and forced exits** (Friday close) pay slippage on top of the spread:
   0.5 pip EUR_USD, 1 pip GBP_JPY. If price gaps through a stop, it fills at the
   bar open when that's worse than the stop (plus slippage).
-- **Financing:** a policy-rate table (Fed, ECB, BoE, BoJ) built from decision dates
-  2016–2026. OANDA's markup is calibrated by comparing today's OANDA financing rates
-  with today's policy rates, per pair and side. Charged at each 17:00 New York
-  rollover. The triple-rollover day must be verified in OANDA's docs before coding,
-  and the rollover time must be tested across both DST changes.
+- **Financing** (`src/financing.py`): amount = units × price × annual rate × days / 365,
+  in the quote currency. The annual rate is the base minus quote policy rate (Fed
+  range midpoint, ECB deposit rate, Bank Rate, BoJ policy rate), by effective date,
+  2016–2026, minus a markup per pair and side. The markup is calibrated so the model
+  reproduces OANDA's rates on 2026-11-14.
+- **Rollover:** 17:00 New York on weekdays (moves with US daylight saving).
+  - Main run: 1 day Mon/Tue/Thu/Fri, 3 days Wed (OANDA help pages, verified).
+  - Sensitivity: the API's schedule, Mon 0 / Tue 1 / Wed 3 / Thu 1 / Fri 1.
+  - A position is charged at a rollover if it's open at that moment. Market holidays are not modelled.
 - Every result is reported three ways: financing on, off, and credits capped at zero.
 
 ## 9. Same-bar rules (M5)

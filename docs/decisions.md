@@ -27,3 +27,19 @@
 - Data checks are clean on both pairs, development and hold-out (hold-out checked for integrity only; no prices or results viewed). Non-weekend gaps: the Christmas and New Year closures,
   plus a 2h50m hole on 2022-05-12 05:15–08:05 UTC in both pairs (cause unknown; it's in both pairs, so it looks like a feed gap rather than a market event).
   It's left as a gap, not filled.
+
+## 2026-11-14 — Financing, account currency, margin (step 2)
+- Triple rollover verified: OANDA's help pages (US, Canada, Singapore, Australia, UK, BVI) say FX takes 3 days at
+  Wednesday 17:00 New York, with nothing on Saturday or Sunday. USD/CAD is the exception (Thursday).
+- The v20 API's `financingDaysOfWeek` for both pairs returns Mon 0 / Tue 1 / Wed 3 / Thu 1 / Fri 1, only 6 days a week.
+  The developer docs don't define the day or the timezone. The owner chose the help-page schedule (7 days/week) as the
+  main run and the API schedule as a sensitivity run.
+- Policy-rate tables were checked against each bank's history page (Fed openmarket, ECB key rates, BoE Bank Rate,
+  BoJ statements). Effective dates are used, not announcement dates, since that's when rates actually changed.
+  Two caveats: the ECB table came from a summarised page read, but it agrees with decision dates recalled independently
+  plus news reports for 2026. The BoJ 2026 levels (1.00% Jun, 1.25% Sep) come from news reports; their effective dates
+  assume the next business day.
+- Markups calibrated on 2026-11-14 (annual): EUR_USD long 1.085%, short 0.935%; GBP_JPY long 0.92%, short 1.16%.
+  They're all about 1%, which suggests the policy-rate model fits OANDA's pricing.
+- Account currency is GBP (practice account). Backtest runs in GBP 10,000. GBP_USD M5 downloaded for conversion only (data clean).
+- Margin rate: 3.33% for both pairs, from the API. The earlier 5% for GBP_JPY was Claude's assumption, not the owner's.

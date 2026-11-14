@@ -21,7 +21,8 @@ from oandapyV20.exceptions import V20Error
 
 from src.config import load_config
 
-INSTRUMENTS = ["EUR_USD", "GBP_JPY"]
+# GBP_USD is not traded; it converts EUR_USD profit and loss (in USD) to the GBP account currency.
+INSTRUMENTS = ["EUR_USD", "GBP_JPY", "GBP_USD"]
 GRANULARITY = "M5"
 # Six weeks before the development period (2016-11-14) so ATR and swings are warmed up.
 DEFAULT_START = "2016-10-03"
@@ -94,13 +95,14 @@ def write_csv(rows, path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--start", default=DEFAULT_START, help="first day, YYYY-MM-DD (UTC)")
+    parser.add_argument("--instruments", nargs="+", default=INSTRUMENTS)
     args = parser.parse_args()
 
     cfg = load_config()
     client = oandapyV20.API(access_token=cfg["token"], environment=cfg["env"])
 
     os.makedirs(DATA_DIR, exist_ok=True)
-    for instrument in INSTRUMENTS:
+    for instrument in args.instruments:
         rows = fetch_candles(client, instrument, args.start)
         path = os.path.join(DATA_DIR, f"{instrument.replace('_', '')}_{GRANULARITY}.csv")
         write_csv(rows, path)
