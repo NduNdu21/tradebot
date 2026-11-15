@@ -23,6 +23,9 @@ Levels are measured from the origin (0%) toward the extreme (100%).
   re-place orders, leg 1 confirmation, time limit, Friday 16:00 pull.
 - **Broker-side events are simulated on M5:** limit fills, stops, targets.
 - The live bot will run the same way.
+- Each H1 bar is evaluated (limit fills, mode-b confirmation) against the levels
+  in force at its open. Re-anchoring from that bar's own high takes effect only
+  after it closes.
 
 ## 1. Data
 - M5 bid and ask candles from OANDA (practice API), one source, 2016-10-03 onward.
@@ -41,14 +44,15 @@ Levels are measured from the origin (0%) toward the extreme (100%).
 
 ## 3. Setup (anchoring)
 **Main run: confirmed origin with a running extreme (no lookahead).**
-- **Origin** = the most recent ATR-confirmed swing low (for buys) / high (for sells).
+- **Origin** = always the most recent confirmed swing low (for buys) / high (for
+  sells) from the ATR zigzag.
 - **Extreme** = the highest high (lowest low) since the origin. It's known at every bar.
 - The setup is **armed** once range ≥ K × ATR and the origin→extreme span ≥ min_bars.
-- A new high (new low for sells) beyond the extreme **re-anchors** the fib: the
-  levels move to the new extreme at the next H1 close. A new extreme never cancels a setup.
-- The extreme is **frozen** when price first trades into the entry zone.
-  *(Open question: in modes b and d price can reach the zone without a fill. Does a
-  later new high still re-anchor after that?)*
+- Before any fill, a new high (new low for sells) beyond the extreme **re-anchors**
+  the fib in every mode: the levels move to the new extreme at the next H1 close.
+  A new extreme never cancels a setup.
+- The geometry (extreme, entries, stop, targets) **freezes at the first fill of
+  any leg**, never at a zone touch. A touch of the zone without a fill is forgotten.
 - Entry, stop and target prices come from the extreme as of the last completed
   H1 bar and are re-priced only at each H1 close. This prevents a new high and a
   pullback inside the same hour from using a level that wasn't known yet.
@@ -90,12 +94,17 @@ A new extreme is not a cancel: it re-anchors the setup (§3).
   - **TP2 = swing extreme (headline)**
   - TP3 = 161.8% extension
   - Controls: fixed 1R, 2R, 3R from each leg's own entry.
-- **Friday close (variant, on/off):** a bot-side decision at the H1 close at
-  16:00 New York on Friday. That's 21:00 UTC in winter and 20:00 UTC in summer, so
-  always an H1 boundary. Open legs close at the open of the 16:00 NY M5 candle
-  (bid for longs, ask for shorts, plus slippage). If the market is shut at 16:00
-  (a holiday), they close at the first candle after it. Pending setups with no fill
-  survive the weekend, but their orders are pulled from 16:00 Friday until the market reopens.
+- **Friday close (variant, on/off):** a bot-side decision at the last H1 close
+  before forex shuts: 16:00 New York on Fridays, and on 24 and 31 Dec when they fall
+  Monday–Thursday. On those days OANDA forex closes at 16:59 NY and reopens at 17:05
+  the next day (OANDA holiday trading hours, 2025 schedule; the M5 data shows the same
+  pattern every year 2016–2023). OANDA lists no other forex early closes.
+  16:00 NY is 21:00 UTC in winter and 20:00 UTC in summer, so always an H1 boundary.
+  Open legs close at the open of the 16:00 NY M5 candle (bid for longs, ask for
+  shorts, plus slippage). If the market is unexpectedly shut at 16:00, they close
+  at the first candle after it. Pending setups with no fill survive, but their
+  orders are pulled until the market reopens. Any leg still held across a market
+  closure (a gap of 12 hours or more) is logged as a weekend hold.
 
 ## 7. Sizing and exposure
 - Account currency is GBP, matching the practice account. Start with 10,000 GBP.
@@ -107,14 +116,16 @@ A new extreme is not a cancel: it re-anchors the setup (§3).
   Open P&L doesn't count; realised P&L and financing do.
 - Units = risk in GBP / (stop distance in GBP per unit), rounded down to a whole
   unit; a leg that rounds to 0 is skipped. Stop distance = order price − stop: the
-  limit price for limits *(proposed)*, the fill price for market entries. This matches a live order,
+  limit price for limits, the fill price for market entries. This matches a live order,
   whose units are set when it's placed. A gap fill can then lose more or less than 1R.
+- **R is planned risk:** (order price − stop) × units, in GBP at entry. Every
+  result is reported in planned R.
   EUR_USD amounts convert USD → GBP at the GBP_USD mid; GBP_JPY amounts convert
   JPY → GBP at the GBP_JPY mid. Sizing uses the mid at the open of the fill candle,
   P&L the mid when it's realised.
 - Skip a leg if it would push total notional above **5×** the sizing base, or
-  margin used above **20%** of it. Margin rate is 3.33% for both pairs, the
-  account's rate from the API. Both caps count open legs on both pairs at current
+  margin used above **20%** of it. Margin rates are per instrument; 3.33% for both
+  pairs, the account's rates from the API. Both caps count open legs on both pairs at current
   prices. Each cap is checked separately, and how often each one binds is logged.
   At 3.33%, 5× notional uses 16.7% margin, so the margin cap only binds alongside
   the notional cap.
@@ -122,9 +133,10 @@ A new extreme is not a cancel: it re-anchors the setup (§3).
 ## 8. Fills and costs
 - Real bid/ask spread from the data on every fill. Longs enter at the ask and exit
   (stop and target) at the bid; shorts the opposite.
-- **Market entries** (mode b, next H1 open) fill at the open, spread only. If the
-  open is already past the stop, the entry is skipped, since the broker would reject
-  the stop *(proposed)*.
+- **Market entries** (mode b, next H1 open) fill at the open, spread only. Skip the
+  entry if the open is at or beyond the stop, or at or beyond the variant's target,
+  measured on the side that triggers them (bid for longs, ask for shorts). Both
+  kinds of skip are counted.
 - **A gap through the stop on a resting limit** fills at the open, and the leg is
   stopped out at that same open with stop slippage.
 - **Limit orders** (entries and targets) get no slippage. If price gaps past a
@@ -175,9 +187,11 @@ A new extreme is not a cancel: it re-anchors the setup (§3).
   curve. 61.8–76.4 must beat both immediate neighbours.
 
 ### Reporting (docs/backtests.md)
-For every cell: trade counts, longs and shorts separately, results with financing
-on / off / credits capped at zero, and the number of fallback-resolved trades,
-target-before-fill decisions (§9), and legs skipped by each exposure cap (§7).
+For every cell, with all results in planned R: trade counts, longs and shorts
+separately, results with financing on / off / credits capped at zero, and the
+number of fallback-resolved trades, target-before-fill decisions (§9), legs skipped
+by each exposure cap (§7), mode-b entries skipped through the stop or the target
+(§8), and weekend holds (§6).
 
 ### Pass criteria
 Development (walk-forward out-of-sample, 200+ setups):

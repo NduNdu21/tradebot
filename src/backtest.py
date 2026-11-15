@@ -13,8 +13,8 @@ What happens at each M5 timestamp:
   1. charge financing for every rollover since the previous timestamp;
   2. for each traded pair with a candle at this time:
      a. if the candle starts a new hour, the previous H1 candle is complete:
-        do the Friday pull if 16:00 New York Friday has passed, then call
-        strategy.on_h1_close() (orders placed there are live from this candle);
+        do the pull if 16:00 New York on a Friday (or 24/31 Dec) has passed, then
+        call strategy.on_h1_close() (orders placed there are live from this candle);
      b. stops and targets on legs that were already open;
      c. fills on pending orders, then exits for those fresh fills;
      d. once the position has closed, cancel its unfilled legs.
@@ -50,10 +50,11 @@ class Config:
     compounding: bool = False
     risk_per_leg: float = 0.005         # 0.5% of the sizing base per leg
     max_notional: float = 5.0           # total open notional <= 5 x sizing base
-    margin_rate: float = 0.0333         # the account's rate for both pairs (API)
+    # The account's margin rates (API): 3.33% for both pairs.
+    margin_rates: dict = field(default_factory=lambda: {"EUR_USD": 0.0333, "GBP_JPY": 0.0333})
     max_margin_used: float = 0.20       # margin used <= 20% of sizing base
     slippage_pips: dict = field(default_factory=lambda: {"EUR_USD": 0.5, "GBP_JPY": 1.0})
-    friday_close: bool = False          # variant: flatten Friday 16:00 New York
+    friday_close: bool = False          # variant: flatten 16:00 New York on Fridays and 24/31 Dec
     financing_mode: str = "on"          # financing column booked to the balance (matters when compounding)
     financing_schedule: str = "help"    # "help" (main run) or "api" (sensitivity)
 
@@ -104,7 +105,10 @@ def load_data(include_holdout=False):
 
 
 def trade_table(trades):
-    """One row per leg, with P&L and R under each financing treatment (§8)."""
+    """One row per leg, with P&L and R under each financing treatment (§8).
+
+    R is always planned R: P&L divided by the planned risk (order price to stop x units).
+    """
     rows = []
     for t in trades:
         row = {k: getattr(t, k) for k in ("pair", "setup_id", "leg", "side", "entry_time", "entry_price",
@@ -119,17 +123,32 @@ def trade_table(trades):
     return pd.DataFrame(rows)
 
 
-def last_friday_cutoff(timeline):
-    """For each time, the most recent Friday 16:00 New York at or before it (UTC).
+PULL_HOUR = 16                # New York; the last H1 close before forex shuts at 16:59
+HOLIDAY_EVES = ((12, 24), (12, 31))   # (month, day): OANDA forex closes 16:59 NY, reopens next day 17:05
+CLOSURE = pd.Timedelta(hours=12)      # a gap in candles this long is a market closure, not a data hole
+
+
+def is_pull_day(days):
+    """Days (New York dates) when forex shuts at 16:59 NY until a later reopen:
+    every Friday, plus Christmas Eve and New Year's Eve when they fall Monday-Thursday.
+    Source: OANDA holiday trading hours (2025 schedule) and the M5 data 2016-2023.
+    """
+    eve = False
+    for month, day in HOLIDAY_EVES:
+        eve = eve | ((days.month == month) & (days.day == day))
+    return (days.dayofweek == 4) | (eve & (days.dayofweek < 4))
+
+
+def last_pull_time(timeline):
+    """For each time, the most recent pull time (16:00 NY on a pull day) at or before it, in UTC.
 
     Worked out on New York wall-clock time so it follows US daylight saving:
     16:00 NY is 21:00 UTC in winter and 20:00 UTC in summer, always an H1 boundary.
     """
     local = timeline.tz_convert(NEW_YORK).tz_localize(None)
-    days_since_friday = (local.dayofweek - 4) % 7
-    cutoff = local.normalize() - pd.to_timedelta(days_since_friday, unit="D") + pd.Timedelta(hours=16)
-    cutoff = cutoff.where(cutoff <= local, cutoff - pd.Timedelta(days=7))  # Friday before 16:00
-    return cutoff.tz_localize(NEW_YORK).tz_convert("UTC")
+    days = pd.date_range(local[0].normalize() - pd.Timedelta(days=7), local[-1].normalize(), freq="D")
+    pulls = (days[is_pull_day(days)] + pd.Timedelta(hours=PULL_HOUR)).tz_localize(NEW_YORK).tz_convert("UTC")
+    return pulls[pulls.searchsorted(timeline, side="right") - 1]
 
 
 class NoStrategy:
@@ -162,9 +181,9 @@ class Engine:
                      for name in self.names}
         self.hours = self.timeline.floor("h")
         ny = self.timeline.tz_convert(NEW_YORK)
-        # From Friday 16:00 NY until the market reopens, pending orders are pulled.
-        self.after_friday_cutoff = (ny.dayofweek == 4) & (ny.hour >= 16)
-        self.friday_cutoff = last_friday_cutoff(self.timeline)
+        # From 16:00 NY on a pull day until the market reopens, pending orders are pulled.
+        self.after_pull = is_pull_day(ny.tz_localize(None).normalize()) & (ny.hour >= PULL_HOUR)
+        self.pull_time = last_pull_time(self.timeline)
 
         self.time = None
         self.balance = self.config.starting_balance
@@ -180,7 +199,10 @@ class Engine:
         # How often each judgement call or cap decided something:
         #   target_before_fill: one leg's target and the other's limit in one candle
         #   notional_cap / margin_cap: each cap a skipped leg would have broken
+        #   skip_through_stop / skip_through_target: market entries skipped at the open
+        #   weekend_hold: legs left open across a market closure
         self.counts = Counter()
+        self.weekend_holds = []                            # (pair, setup_id, leg, last candle, reopen)
 
     @property
     def sizing_base(self):
@@ -234,6 +256,7 @@ class Engine:
                    rollovers(self.timeline[0], self.timeline[-1], cfg.financing_schedule)]
         next_rollover = 0
         last_hour = {p: None for p in self.pairs}
+        last_time = {p: None for p in self.pairs}
 
         for i, t in enumerate(self.timeline):
             self.time = t
@@ -251,17 +274,24 @@ class Engine:
             for name, bar in present:
                 if name not in self.active:
                     continue  # conversion pair, not traded
+                # Log legs that sat through a weekend or holiday closure. With the
+                # Friday pull on, this should only happen if the market shut early.
+                if last_time[name] is not None and t - last_time[name] >= CLOSURE:
+                    for trade in self.open[name]:
+                        self.weekend_holds.append((name, trade.setup_id, trade.leg, last_time[name], t))
+                        self.counts["weekend_hold"] += 1
+                last_time[name] = t
                 # 2a. A new hour means the previous H1 candle is complete.
                 hour = self.hours[i]
                 if last_hour[name] is not None and hour != last_hour[name]:
-                    # Friday pull: the first H1 close at or after 16:00 NY Friday. If the
-                    # market was shut then (holiday), that's the first candle after it.
-                    if cfg.friday_close and self.friday_cutoff[i] > last_hour[name]:
+                    # Pull: the first H1 close at or after 16:00 NY on a pull day. If the
+                    # market was already shut then, that's the first candle after it.
+                    if cfg.friday_close and self.pull_time[i] > last_hour[name]:
                         self._friday_flatten(name, t, bar)
                     self.strategy.on_h1_close(self, name, last_hour[name])
                 last_hour[name] = hour
-                if cfg.friday_close and self.after_friday_cutoff[i]:
-                    continue  # orders pulled for the weekend; nothing can fill
+                if cfg.friday_close and self.after_pull[i]:
+                    continue  # orders pulled until the reopen; nothing can fill
                 self._process_bar(name, t, bar)
 
             for name, bar in present:
@@ -327,13 +357,20 @@ class Engine:
         if price is None:
             return None, False
         del self.pending[order.pair][order.leg]
-        long = order.side == "long"
-        # A market order (decided at the H1 close) whose open is already past the stop
-        # would be rejected by the broker. A resting limit that gaps past the stop does
-        # fill, and the exit check then stops it out at the same open.
-        if order.kind == "market" and ((long and price <= order.stop) or (not long and price >= order.stop)):
-            self.skipped.append((t, order, "through_stop"))
-            return None, False
+        # A market entry (decided at the H1 close) is skipped if the open is already at
+        # or past its stop or its target, on the side that triggers them (bid for a
+        # long, ask for a short). A resting limit that gaps past the stop does fill,
+        # and the exit check then stops it out at the same open.
+        if order.kind == "market":
+            long = order.side == "long"
+            sign = 1 if long else -1
+            trigger = bar.bid_o if long else bar.ask_o
+            reason = ("through_stop" if sign * trigger <= sign * order.stop else
+                      "through_target" if sign * trigger >= sign * order.target else None)
+            if reason:
+                self.skipped.append((t, order, reason))
+                self.counts[f"skip_{reason}"] += 1
+                return None, False
 
         # Units are set from the order price, as a live order's are when it's placed.
         units, risk_gbp, reason = self._size(order.pair, order.entry or price, order.stop)
@@ -359,12 +396,13 @@ class Engine:
             return 0, 0.0, "zero_units"
         # Exposure caps count every open leg on both pairs, at current prices.
         # Each cap is checked and counted on its own, so we can see which ones bind.
-        notional = self._notional(pair, units) + sum(
-            self._notional(t.pair, t.units) for p in self.pairs for t in self.open[p])
+        legs = [(pair, units)] + [(t.pair, t.units) for p in self.pairs for t in self.open[p]]
+        notional = sum(self._notional(p, u) for p, u in legs)
+        margin = sum(self._notional(p, u) * cfg.margin_rates[p] for p, u in legs)
         broken = []
         if notional > cfg.max_notional * base:
             broken.append("notional_cap")
-        if notional * cfg.margin_rate > cfg.max_margin_used * base:
+        if margin > cfg.max_margin_used * base:
             broken.append("margin_cap")
         if broken:
             self.counts.update(broken)
@@ -416,8 +454,13 @@ class Engine:
         self.closed.append(trade)
 
     def _end_setup_if_closed(self, pair):
+        """Finish the setup once its position has closed, or once every leg was skipped unfilled."""
+        if self.active[pair] is None:
+            return
         if self.has_filled[pair] and not self.open[pair]:
             self.pending[pair].clear()
+            self._finish_setup(pair)
+        elif not self.has_filled[pair] and not self.pending[pair]:
             self._finish_setup(pair)
 
     def _finish_setup(self, pair):

@@ -79,3 +79,21 @@
 - Research runs don't compound: a fixed £10,000 sizing base, so one run records financing on / off / capped on every
   trade (`trade_table`). `Config(compounding=True)` is for the final illustration only; `financing_mode` then picks
   which financing feeds the balance.
+
+## 2026-11-15 — Freeze, H1 evaluation, holiday pulls (owner's rulings, second round)
+- Geometry freezes at the first fill of any leg, never at a zone touch. Before a fill, a new extreme re-anchors in
+  every mode; a zone touch without a fill is forgotten. Origin = most recent confirmed zigzag low/high.
+- Each H1 bar is judged against the levels in force at its open; re-anchoring from its high applies after it closes.
+  The engine already works this way (orders placed at an H1 close are live from the next candle). Step 4 must too.
+- Approved: limit legs sized from the limit price; R = planned risk; all results in planned R (`trade_table`).
+- Mode-b market entries are skipped at or beyond the stop or the target, on the triggering side (bid for longs).
+  Each kind is counted.
+- Margin rates are now per instrument, so the margin cap can bind on its own (tested with a synthetic 5% instrument).
+- Holiday hours checked against OANDA's holiday trading hours pages (US and UK, read 2026-11-15): forex closes 16:59
+  ET on 24 and 31 Dec 2025 and reopens 17:05 the next day; Thanksgiving, Good Friday, Juneteenth and the other US
+  holidays trade regular FX hours. December 2026 isn't published yet; it falls after the hold-out, so the backtest
+  doesn't need it. The M5 data (2016–2023) shows the same 16:55 last candle on every weekday 24/31 Dec, and no other
+  early closes. So the pull runs at 16:00 NY on Fridays and on weekday 24/31 Dec.
+- Weekend holds are logged (any open leg across a gap of 12h or more). Dummy-strategy check on 2016–2024: 836 holds
+  with the pull off (16 over Christmas or New Year), zero with it on.
+- Bug fixed: a setup whose only legs were skipped stayed active and blocked its pair for the rest of the run.

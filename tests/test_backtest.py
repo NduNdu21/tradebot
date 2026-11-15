@@ -10,7 +10,7 @@ from datetime import date
 
 import pandas as pd
 
-from src.backtest import Config, Engine, last_friday_cutoff, trade_table
+from src.backtest import Config, Engine, last_pull_time, trade_table
 from src.financing import annual_rate
 
 SPREAD = 0.0002            # EUR_USD ask = bid + 2 pips
@@ -101,6 +101,9 @@ class LimitFillTest(unittest.TestCase):
         self.assertAlmostEqual(trade.exit_price, 1.0980 - SLIP)      # bid open minus slippage
         self.assertEqual(trade.exit_reason, "stop")
         self.assertEqual(trade.units, UNITS_LEG1)                    # sized from the limit price
+        # Planned risk is limit to stop (48 pips); this gap lost only ~6.5 pips, so about -0.14R.
+        r = trade_table(e.closed).iloc[0].r_off
+        self.assertAlmostEqual(r, (1.0980 - SLIP - (1.0980 + SPREAD)) / (ENTRY1 - STOP), places=3)
 
     def test_market_order_fills_at_next_open_ask_without_slippage(self):
         e = eurusd_engine([QUIET, QUIET], no_financing())
@@ -114,6 +117,16 @@ class LimitFillTest(unittest.TestCase):
         e.run()
         self.assertEqual(e.closed, [])
         self.assertEqual(e.skipped[0][2], "through_stop")
+        self.assertEqual(e.counts["skip_through_stop"], 1)
+
+    def test_market_order_opening_at_the_target_is_skipped(self):
+        # Bid opens exactly at the 1R target 1.1086: the trade would be over at once.
+        e = eurusd_engine([(1.1086, 1.1090, 1.1080, 1.1085)], no_financing())
+        e.place_market("EUR_USD", "s1", 1, "long", STOP, 1.1086)
+        e.run()
+        self.assertEqual(e.closed + e.open_trades("EUR_USD"), [])
+        self.assertEqual(e.skipped[0][2], "through_target")
+        self.assertEqual(e.counts["skip_through_target"], 1)
 
 
 class ExitTest(unittest.TestCase):
@@ -243,6 +256,13 @@ class SetupLifecycleTest(unittest.TestCase):
         self.assertEqual(e.pending_orders("EUR_USD"), [])
         self.assertIsNone(e.active["EUR_USD"])
 
+    def test_setup_whose_only_leg_is_skipped_frees_the_pair(self):
+        e = eurusd_engine([(1.0980, 1.0985, 1.0975, 1.0980)], no_financing())
+        e.place_market("EUR_USD", "s1", 1, "long", STOP, TP2)
+        e.run()
+        self.assertIsNone(e.active["EUR_USD"])
+        e.place_limit("EUR_USD", "s2", 1, "long", ENTRY1, STOP, TP2)   # no "busy" error
+
     def test_one_setup_per_pair(self):
         e = eurusd_engine([QUIET])
         e.place_limit("EUR_USD", "s1", 1, "long", ENTRY1, STOP, TP2)
@@ -334,11 +354,14 @@ class ExposureCapTest(unittest.TestCase):
         self.assertEqual(e.skipped[0][2], "notional_cap")
         self.assertEqual(e.counts, {"notional_cap": 1})
 
-    def test_margin_cap_alone(self):
-        # At a 10% margin rate, 20% of balance allows only 2 x balance of notional.
-        # Stop 18 pips away: 34,722 units, ~£30.7k notional (3x): margin breaks, notional doesn't.
-        e = eurusd_engine([DIP1], no_financing(margin_rate=0.10))
-        e.place_limit("EUR_USD", "s1", 1, "long", ENTRY1, ENTRY1 - 0.0018, TP2)
+    def test_margin_cap_binds_before_notional_cap_on_a_5_percent_instrument(self):
+        # Synthetic TST_USD with 5% margin: 20% of £10,000 allows £40,000 notional,
+        # less than the £50,000 notional cap. A leg risking £50 over 13 pips is
+        # 48,076 units, about £42.5k: under the notional cap, over the margin cap.
+        tst = candles([DIP1])
+        config = no_financing(margin_rates={"TST_USD": 0.05}, slippage_pips={"TST_USD": 0.5})
+        e = Engine({"TST_USD": tst, "GBP_USD": flat(GBPUSD, tst)}, config=config, pairs=["TST_USD"])
+        e.place_limit("TST_USD", "s1", 1, "long", ENTRY1, ENTRY1 - 0.0013, TP2)
         e.run()
         self.assertEqual(e.skipped[0][2], "margin_cap")
         self.assertEqual(e.counts, {"margin_cap": 1})
@@ -359,7 +382,7 @@ class FridayCloseTest(unittest.TestCase):
                 cutoff = utc(f"{day} {hhmm}")
                 times = pd.DatetimeIndex([cutoff - pd.Timedelta("5min"), cutoff,
                                           cutoff + pd.Timedelta("2D")])   # the Sunday after
-                got = last_friday_cutoff(times)
+                got = last_pull_time(times)
                 self.assertEqual(got[1], cutoff)
                 self.assertEqual(got[2], cutoff)
                 # Just before the cutoff: the previous Friday's 16:00 NY, which can sit
@@ -400,6 +423,37 @@ class FridayCloseTest(unittest.TestCase):
         e.run()
         self.assertEqual(e.open_trades("EUR_USD")[0].entry_time, utc("2024-01-14 22:05"))
 
+    def test_christmas_and_new_years_eve_are_pull_days(self):
+        # 2019: Dec 24 and 31 are Tuesdays (EST, 16:00 NY = 21:00 UTC).
+        # Dec 23 is a Monday: no pull, so the latest pull is still Friday Dec 20.
+        times = pd.DatetimeIndex([utc("2019-12-23 21:30"), utc("2019-12-24 21:30"), utc("2019-12-31 21:30")])
+        self.assertEqual(list(last_pull_time(times)),
+                         [utc("2019-12-20 21:00"), utc("2019-12-24 21:00"), utc("2019-12-31 21:00")])
+
+    def test_eve_falling_on_a_weekend_adds_no_pull(self):
+        # Dec 24 2022 was a Saturday: the Friday pull on Dec 23 covers it.
+        self.assertEqual(last_pull_time(pd.DatetimeIndex([utc("2022-12-26 12:00")]))[0],
+                         utc("2022-12-23 21:00"))
+
+    def test_flattens_and_pulls_on_christmas_eve(self):
+        # Tuesday 2019-12-24: flatten at 21:00 UTC; market reopens Wed 17:00 NY (22:00 UTC).
+        eu = pd.concat([candles([DIP1, QUIET, QUIET], start="2019-12-24 20:50"),
+                        candles([QUIET], start="2019-12-25 22:00")])
+        e = engine_for(eu, no_financing(friday_close=True))
+        e.place_limit("EUR_USD", "s1", 1, "long", ENTRY1, STOP, TP2)
+        e.run()
+        self.assertEqual(e.closed[0].exit_reason, "friday")
+        self.assertEqual(e.closed[0].exit_time, utc("2019-12-24 21:00"))
+        self.assertEqual(e.counts["weekend_hold"], 0)
+
+    def test_weekend_hold_is_logged_when_pull_is_off(self):
+        eu = self.friday_then_sunday([DIP1, QUIET, QUIET], [QUIET])
+        e = engine_for(eu, no_financing())
+        e.place_limit("EUR_USD", "s1", 1, "long", ENTRY1, STOP, TP2)
+        e.run()
+        self.assertEqual(e.weekend_holds,
+                         [("EUR_USD", "s1", 1, utc("2024-01-12 21:00"), utc("2024-01-14 22:00"))])
+
     def test_market_shut_at_1600_flattens_at_reopen(self):
         # No candles after 20:55 UTC Friday (15:55 NY), e.g. an early holiday close.
         eu = self.friday_then_sunday([DIP1, QUIET], [QUIET, QUIET])
@@ -408,6 +462,7 @@ class FridayCloseTest(unittest.TestCase):
         e.run()
         self.assertEqual(e.closed[0].exit_reason, "friday")
         self.assertEqual(e.closed[0].exit_time, utc("2024-01-14 22:00"))
+        self.assertEqual(e.counts["weekend_hold"], 1)   # an unexpected early close still leaks
 
 
 class FinancingTest(unittest.TestCase):
