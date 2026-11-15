@@ -111,6 +111,13 @@ class LimitFillTest(unittest.TestCase):
         e.run()
         self.assertAlmostEqual(e.open_trades("EUR_USD")[0].entry_price, 1.1060 + SPREAD)
 
+    def test_market_order_r_target_is_set_from_the_fill_price(self):
+        e = eurusd_engine([QUIET], no_financing())
+        e.place_market("EUR_USD", "s1", 1, "long", STOP, target_r=2)
+        e.run()
+        trade = e.open_trades("EUR_USD")[0]
+        self.assertAlmostEqual(trade.target, trade.entry_price + 2 * (trade.entry_price - STOP))
+
     def test_market_order_opening_past_the_stop_is_skipped(self):
         e = eurusd_engine([(1.0980, 1.0985, 1.0975, 1.0980)], no_financing())
         e.place_market("EUR_USD", "s1", 1, "long", STOP, TP2)

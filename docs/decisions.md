@@ -97,3 +97,23 @@
 - Weekend holds are logged (any open leg across a gap of 12h or more). Dummy-strategy check on 2016–2024: 836 holds
   with the pull off (16 over Christmas or New Year), zero with it on.
 - Bug fixed: a setup whose only legs were skipped stayed active and blocked its pair for the rest of the run.
+
+## 2026-11-15 — Signals (step 4)
+- Owner's rulings: Wilder ATR(14) on mid H1, seeded with the mean of the first 14 TRs, weekend gaps kept in TR,
+  200 H1 bars of warm-up. Trigger-side skip check confirmed (bid for longs); entry price is only for the fill and
+  planned R. Holder keeps the pair over an opposite setup; min_bars is an arming rule only; a bar can't confirm its
+  own new extreme; the time limit counts from arming and re-anchoring doesn't reset it.
+- `src/swings.py`: online `WilderATR` and `ZigZag`. `src/setups.py`: `FibStrategy` (the engine's strategy) and
+  `PairSignals` (all setup logic for one pair). Every decision is logged as (time decided, pair, action, details).
+- The engine gained `place_market(..., target_r=n)`, because a fixed-R target on a market entry depends on its fill price.
+- Lookahead: (1) truncation test at 25 random cuts (20 placed 5 minutes into an hour, where a peek at the next bar
+  would see only one candle) on three parameter sets, all decisions before each cut identical; (2) a guard that
+  fails if the strategy reads any H1 bar later than the one just closed. A planted one-bar peek is caught by both.
+  The first version (5 cuts) missed the planted peek, which is why the test was strengthened.
+  Real-data check: 2018, 4 cuts, 5,249 decisions identical.
+- Activity on dev data, baseline (counts only; P&L and R are left for the step-5 protocol): 4,887 setups armed,
+  2,800 got the pair, 2,642 legs filled, 1 stop-first fallback. About 10 s per run.
+- Two constraints bind hard, worth knowing before step 5:
+  - The 5× notional cap blocks 740 of ~3,400 attempted fills (22%), mostly leg 2 (596). Each leg risks £50 on a
+    stop with a median distance of 40–45 pips (both pairs pooled), so two legs together often exceed 5 × £10,000 of notional.
+  - 2,087 armed setups never got the pair, because an opposite setup was holding it.

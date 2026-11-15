@@ -33,7 +33,11 @@ Levels are measured from the origin (0%) toward the extreme (100%).
 - GBP_USD M5 is downloaded too, only to convert EUR_USD profit and loss (USD) to GBP.
 - H1 candles are resampled from M5, not downloaded separately.
   Mid OHLC = (bid + ask) / 2, field by field.
-- ATR(14) uses H1 mid prices, Wilder smoothing *(proposed)*.
+- ATR(14) uses H1 mid prices with Wilder smoothing, seeded with the simple average
+  of the first 14 true ranges. True range keeps weekend gaps (it uses the previous
+  close). The very first bar has no previous close, so its TR is high − low *(proposed)*.
+- The first 200 H1 bars are warm-up: they feed ATR only, with no swings or setups.
+- Swings and setups use H1 mid prices too *(proposed)*; orders placed at those levels fill on bid/ask (§8).
 
 ## 2. Swings
 - A swing ends when price reverses at least K × ATR(14) from its extreme
@@ -41,13 +45,20 @@ Levels are measured from the origin (0%) toward the extreme (100%).
 - A swing must span at least `min_bars` H1 bars from origin to extreme;
   this stops single-candle spikes from counting as structure.
 - Baseline K = 3, min_bars = 5. Grid: K ∈ {2, 3, 4} × min_bars ∈ {3, 5, 8}.
+- The zigzag itself is pure K × ATR: min_bars is only an arming rule (§3).
+- A bar that makes a new extreme can't also confirm it, because on H1 we can't tell
+  whether its high or its low came first. Confirmation needs a later bar.
+- Before the first pivot, both sides are tracked; whichever first sees a K × ATR
+  reversal gives the first pivot *(proposed)*.
 
 ## 3. Setup (anchoring)
 **Main run: confirmed origin with a running extreme (no lookahead).**
 - **Origin** = always the most recent confirmed swing low (for buys) / high (for
   sells) from the ATR zigzag.
 - **Extreme** = the highest high (lowest low) since the origin. It's known at every bar.
-- The setup is **armed** once range ≥ K × ATR and the origin→extreme span ≥ min_bars.
+- The setup is **armed** once range ≥ K × ATR (ATR at that H1 close) and the
+  origin→extreme span ≥ min_bars (bar-index difference). Once armed it stays armed,
+  even if ATR later grows *(proposed)*.
 - Before any fill, a new high (new low for sells) beyond the extreme **re-anchors**
   the fib in every mode: the levels move to the new extreme at the next H1 close.
   A new extreme never cancels a setup.
@@ -57,9 +68,15 @@ Levels are measured from the origin (0%) toward the extreme (100%).
   H1 bar and are re-priced only at each H1 close. This prevents a new high and a
   pullback inside the same hour from using a level that wasn't known yet.
 - Direction = direction of the swing from origin to extreme. No trend filter.
+- **One setup holds the pair at a time.** Confirming a buy's extreme as a swing high
+  doesn't cancel the buy, because its origin is still the latest confirmed low. A sell
+  from that high may arm too, but it waits. The holder keeps the pair until it
+  finishes; then a waiting armed setup takes over. If several are waiting, the newest
+  origin goes first *(proposed)*.
 
 **Robustness run: fully confirmed swings.** Only trade a swing after both ends are
-ATR-confirmed. If price is already past the entry level at confirmation, skip that leg.
+ATR-confirmed. If price is already past the entry level at confirmation, skip that
+leg: "past" means the confirmation bar closed at or beyond the entry *(proposed)*.
 
 ## 4. Entry modes
 Legs are independent. Each leg is either filled or not; neither waits on the other.
@@ -76,14 +93,22 @@ Legs are independent. Each leg is either filled or not; neither waits on the oth
   retracement level. Leg 1 then enters at the next H1 open, at the ask for buys
   and the bid for sells. This can happen even after leg 2 has already filled.
 - Limits are live from arming until the setup is cancelled or the position closes.
+- A leg the engine skipped (exposure cap, or a market entry through its stop or
+  target) isn't re-placed. A later confirmation candle can still trigger a skipped
+  mode-b leg 1 *(proposed)*.
+- After a mode-b confirmation, leg 2 stays at the confirmation's levels until the
+  market entry has gone through, so both legs share one geometry *(proposed)*.
 - Both legs share one stop. No further adds. Unfilled legs cancel when the
   position closes. One position per pair at a time; each setup trades at most once.
 
 ## 5. Cancelling a pending setup
 A setup with no filled leg is cancelled when any of these happens, checked at H1 close:
-1. price has traded through the stop level (origin − 10% of range);
-2. a newer confirmed swing replaces it;
-3. 96 H1 bars pass without a fill (sensitivity: 48 and 200).
+1. price has traded through the stop level (origin − 10% of range), judged on the
+   H1 mid low for buys and the mid high for sells *(proposed)*;
+2. a newer confirmed swing of the origin's kind replaces it: a new swing low for a
+   buy, a new swing high for a sell;
+3. 96 H1 bars pass without a fill (sensitivity: 48 and 200), counted from arming.
+   Re-anchoring doesn't restart the count.
 
 A new extreme is not a cancel: it re-anchors the setup (§3).
 

@@ -69,7 +69,8 @@ class Order:
     kind: str                 # "limit", or "market" (fills at the pair's next candle open)
     entry: Optional[float]    # limit price; None for market orders
     stop: float
-    target: float
+    target: Optional[float]   # None when set from the fill price (target_r)
+    target_r: Optional[float] = None   # market orders: target n x R from the fill price
 
 
 @dataclass
@@ -215,9 +216,15 @@ class Engine:
         """Place or re-price a limit entry for one leg."""
         self._add_order(Order(pair, setup_id, leg, side, "limit", entry, stop, target))
 
-    def place_market(self, pair, setup_id, leg, side, stop, target):
-        """Enter one leg at the open of the pair's next M5 candle (spread, no slippage)."""
-        self._add_order(Order(pair, setup_id, leg, side, "market", None, stop, target))
+    def place_market(self, pair, setup_id, leg, side, stop, target=None, target_r=None):
+        """Enter one leg at the open of the pair's next M5 candle (spread, no slippage).
+
+        Give either a target price or target_r: a target n x R from the fill price,
+        for the fixed-R exit controls, since the fill price isn't known in advance.
+        """
+        if (target is None) == (target_r is None):
+            raise ValueError("give exactly one of target and target_r")
+        self._add_order(Order(pair, setup_id, leg, side, "market", None, stop, target, target_r))
 
     def cancel_setup(self, pair, setup_id):
         """Cancel the setup's unfilled legs. A setup with no fill is finished for good."""
@@ -361,12 +368,15 @@ class Engine:
         # or past its stop or its target, on the side that triggers them (bid for a
         # long, ask for a short). A resting limit that gaps past the stop does fill,
         # and the exit check then stops it out at the same open.
+        target = order.target
         if order.kind == "market":
             long = order.side == "long"
             sign = 1 if long else -1
+            if order.target_r is not None:
+                target = price + sign * order.target_r * abs(price - order.stop)
             trigger = bar.bid_o if long else bar.ask_o
             reason = ("through_stop" if sign * trigger <= sign * order.stop else
-                      "through_target" if sign * trigger >= sign * order.target else None)
+                      "through_target" if sign * trigger >= sign * target else None)
             if reason:
                 self.skipped.append((t, order, reason))
                 self.counts[f"skip_{reason}"] += 1
@@ -378,7 +388,7 @@ class Engine:
             self.skipped.append((t, order, reason))
             return None, False
         trade = Trade(order.pair, order.setup_id, order.leg, order.side, t, price, units,
-                      order.stop, order.target, risk_gbp)
+                      order.stop, target, risk_gbp)
         self.open[order.pair].append(trade)
         self.has_filled[order.pair] = True
         return trade, at_open
