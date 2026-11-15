@@ -58,3 +58,24 @@
 - Open question for step 4: whether cancel rules 1–2 (price through stop, back to extreme) are checked on M5 or at
   H1 close. The engine currently only cancels at H1 close.
 - Speed: 8 years of dev data, both pairs, about 7 s per run, plus 2 s to load (a dummy strategy, no results recorded).
+
+## 2026-11-15 — Engine revisions (owner's rulings on step 3)
+- Bot-side decisions (arm, re-anchor, cancel, re-place, leg 1 confirmation, time limit, Friday pull) at H1 close
+  only; broker-side events (fills, stops, targets) on M5. The live bot works the same way. This settles yesterday's
+  open question: cancel rules are checked at H1 close.
+- Running-extreme anchoring: a new high re-anchors the fib and never cancels. The old cancel rule "price returns to
+  the swing extreme" is removed from strategy.md §5.
+- Friday pull approved: pending orders are pulled from Friday 16:00 NY until the reopen. The pull is tied to the
+  first H1 close at or after 16:00 NY Friday, computed on New York wall-clock time, so it follows US daylight saving
+  and still fires (at the next candle) when a holiday shuts the market before 16:00. Tested on Fridays either side
+  of both 2024 clock changes.
+- A gap through the stop on a resting limit now fills at the open and stops out at that open with stop slippage
+  (it used to be cancelled). To size such a fill, limit legs are sized from the limit price, as a live order's units
+  are fixed when it's placed (Claude's proposal). Market entries opening past the stop are still skipped (proposal).
+- Target and the other leg's limit touched in one candle: target first, position closes, the unfilled leg cancels,
+  and it's counted. A fill at the bar open can reach its target in that same candle (stop first if both touch).
+- Caps: notional 5× and margin 20% of the sizing base. Each cap is checked and counted separately. At 3.33% margin
+  the margin cap only binds together with the notional cap.
+- Research runs don't compound: a fixed £10,000 sizing base, so one run records financing on / off / capped on every
+  trade (`trade_table`). `Config(compounding=True)` is for the final illustration only; `financing_mode` then picks
+  which financing feeds the balance.
