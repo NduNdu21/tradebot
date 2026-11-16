@@ -198,25 +198,59 @@ A new extreme is not a cancel: it re-anchors the setup (§3).
 - **Development:** 2016-11-14 → 2024-11-13. **Hold-out:** 2024-11-14 → 2026-11-13,
   looked at once, with frozen settings. The data loader refuses hold-out data
   unless it's explicitly asked for.
+- **Primary configuration** (ruling 2026-11-16): mode a, TP2, 96-bar time limit,
+  running-extreme anchoring, financing on, **Friday close on** (flatten at the first
+  H1 close at or after 16:00 New York on Fridays and before the known holiday early
+  closes). K × min_bars is chosen by the walk-forward. The pass bar, the random-entry
+  control, the zone-shift control and the hold-out apply to the primary only.
+- **Sensitivities:** every other variant (modes b–d, TP1/TP3/1R/2R/3R, 48/200-bar
+  limits, Friday close off, the API rollover schedule, fully confirmed swings,
+  selection scored on financing off or capped) gets its own walk-forward on the same
+  nine cells and is reported beside the primary. A sensitivity can't replace a failed
+  primary. Any variant adopted after seeing results needs fresh data (the hold-out if
+  unused, otherwise demo).
+- **Unit:** one observation is a setup with at least one filled leg. Setup R = the sum
+  of its legs' P&L / £50 (one leg's planned risk), so leg 1 −£50 and leg 2 +£80 is
+  +0.6R and a two-leg loss is −2R. Expectancy = mean setup R, financing on.
 - **Walk-forward** over development: 3-year train, 1-year test, rolling yearly,
   giving 5 out-of-sample years from 2019-11 to 2024-11.
-  - Inside each training window, pick the configuration by a fixed rule: highest
-    expectancy among grid cells with at least 30 trades whose grid neighbours are
-    also positive. Apply it blind to the next year.
+  - Each grid cell is one continuous run over development; a setup belongs to the
+    window of its first fill *(proposed)*. Setups with a leg still open when the data
+    ends are dropped *(proposed)*.
+  - **Selection rule**, inside each training window: score = mean setup R minus one
+    standard error. A cell is eligible with at least 30 setups and positive mean R
+    of its own *(proposed: from "neighbours are also positive")*, and every orthogonal
+    neighbour in the K × min_bars grid must have positive mean R (a neighbour with no
+    setups doesn't count as positive *(proposed)*). Highest score wins; ties go to
+    more setups. Apply it blind to the next year.
+  - If no cell is eligible, that test year is sat out with no trades *(proposed)*.
   - Never select anything on out-of-sample results.
-- **Random-entry control:** draw entry times from the real trades' hour-of-day
-  distribution, with the same pair, direction and R geometry, and the same spread,
-  financing and position rules. 1,000 runs; the strategy must beat the 95th percentile.
-- **Zone-shift control:** equal-width zones shifted in 5-point steps (retracement
-  %): 51.8–66.4, 56.8–71.4, **61.8–76.4**, 66.8–81.4, 71.8–86.4. Report the full
-  curve. 61.8–76.4 must beat both immediate neighbours.
+- **Random-entry control** (primary only; 1,000 runs; the primary's OOS expectancy
+  must beat the 95th percentile). Each run re-enters every primary OOS setup:
+  - same pair, side and test year; entry at market at the open of a random H1 bar,
+    the hour drawn from that pair's real first-fill hours (UTC hours *(proposed)*);
+    the decision is at the previous H1 close, like a mode-b entry;
+  - each real leg is one market leg with its real stop and target distances in price
+    (taken from the fill price *(proposed)*), placed around the decision bar's mid
+    close *(proposed)*;
+  - the same engine and primary config: spread, slippage, financing, caps, Friday
+    close, one setup per pair. Bars inside the pulled Friday/holiday window can't be
+    drawn *(proposed)*. A draw that finds the pair busy is redrawn later in the same
+    test year; if no bar at the drawn hour is left it's dropped and counted *(proposed)*.
+- **Zone-shift control** (primary only): equal-width zones shifted in 5-point steps
+  (retracement %): 51.8–66.4, 56.8–71.4, **61.8–76.4**, 66.8–81.4, 71.8–86.4. Report
+  the full curve. 61.8–76.4 must beat both immediate neighbours on OOS expectancy.
+  Only the two entries move; stop and targets stay where they are, and each zone gets
+  its own walk-forward *(proposed)*.
 
 ### Reporting (docs/backtests.md)
 For every cell, with all results in planned R: trade counts, longs and shorts
 separately, results with financing on / off / credits capped at zero, and the
 number of fallback-resolved trades, target-before-fill decisions (§9), legs skipped
 by each exposure cap (§7), mode-b entries skipped through the stop or the target
-(§8), and weekend holds (§6).
+(§8), and weekend holds (§6). For the primary, also: OOS results by entry day of
+week (New York weekday of the first fill), and how many legs the Friday exit closed
+and their average R.
 
 ### Pass criteria
 Development (walk-forward out-of-sample, 200+ setups):

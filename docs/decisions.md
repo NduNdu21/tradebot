@@ -117,3 +117,27 @@
   - The 5× notional cap blocks 740 of ~3,400 attempted fills (22%), mostly leg 2 (596). Each leg risks £50 on a
     stop with a median distance of 40–45 pips (both pairs pooled), so two legs together often exceed 5 × £10,000 of notional.
   - 2,087 armed setups never got the pair, because an opposite setup was holding it.
+
+## 2026-11-16 — Experiments (step 5)
+- Owner's rulings: walk-forward selects only K × min_bars; primary = mode a, TP2, 96-bar limit, running-extreme
+  anchoring, financing on, Friday close on. Score = mean setup R − 1 SE, ≥ 30 setups, orthogonal neighbours
+  positive, ties to more setups. Unit = setup, setup R = summed leg P&L / £50, scored on financing on. Pass bar,
+  random-entry and zone-shift controls and the hold-out apply to the primary only; every other variant is a
+  sensitivity with its own walk-forward and can't replace a failed primary. Random control: per setup, market entry.
+  The owner's answers first conflicted on Friday close (off in one, on in the other); confirmed as ON.
+- `src/experiments.py`: 162 engine runs (18 run configurations × 9 cells, about 8 min on 7 workers), cached in
+  data/experiments/. The report is generated into docs/backtests.md. Proposed details (window by first fill, own
+  mean must be positive, empty neighbour isn't positive, sit out a year with no eligible cell, random-control and
+  zone-shift mechanics) are marked in strategy.md §10.
+- **Result: the primary fails.** Every one of the 9 cells has negative mean R in every training window (best
+  training mean −0.119R), so the selection rule never picks a cell and there are 0 OOS setups. Whole-development
+  mean R per cell is −0.157 to −0.244R (financing off −0.145 to −0.232R, so financing isn't the cause). Every
+  sensitivity and every zone shift is negative in every cell too (best: mode c, −0.090R).
+  The random-entry control was not run: there are no OOS setups to mirror.
+- Sanity check that it's the strategy, not the engine (K=3, mb=5, primary): leg 1 wins 40.3% with mean win
+  +1.13R and mean loss −0.90R; at that payoff it needs about 44% to break even. Leg 2 wins 30.8% (+1.74R / −0.95R).
+  Stop-first fallbacks: 1 setup in 1,910.
+- Bug found by the first real run: `trade_table` had no stop/target columns, which the random-entry plan needs.
+  The unit test had used synthetic legs that included them; there is now a test on real `trade_table` output.
+- Per §10 a fail means no demo trading and no re-tuning on the same data. The hold-out is still unused: it stays
+  available, once, for a new pre-registered variant. Step 6 (hold-out lock) only matters if one is pre-registered.

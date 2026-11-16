@@ -104,6 +104,27 @@ class LevelsTest(unittest.TestCase):
                                 tp1=1.1038, tp2=1.1000, tp3=1.0938).items():
             self.assertAlmostEqual(getattr(lv, name), price, places=4, msg=name)
 
+    def test_zone_shift_moves_entries_only(self):
+        # Zone-shift control (§10): +0.05 turns 61.8-76.4% into 66.8-81.4%; stop and targets stay.
+        lv = fib_levels("long", 1.1000, 1.1100, zone_shift=0.05)
+        self.assertAlmostEqual(lv.leg1, 1.10332)
+        self.assertAlmostEqual(lv.leg2, 1.10186)
+        plain = fib_levels("long", 1.1000, 1.1100)
+        self.assertEqual((lv.stop, lv.tp1, lv.tp2, lv.tp3), (plain.stop, plain.tp1, plain.tp2, plain.tp3))
+        sell = fib_levels("short", 1.1100, 1.1000, zone_shift=-0.05)   # 56.8-71.4%
+        self.assertAlmostEqual(sell.leg1, 1.1100 - 0.432 * 0.0100)
+        self.assertAlmostEqual(sell.leg2, 1.1100 - 0.286 * 0.0100)
+
+    def test_zone_shift_past_the_stop_is_rejected(self):
+        with self.assertRaises(ValueError):
+            Params(zone_shift=0.34)
+
+    def test_zone_shift_reaches_the_engine(self):
+        engine, _ = run(BASE + [QUIET, QUIET], zone_shift=0.05)
+        self.assertAlmostEqual(pending(engine)[1].entry, 1.10332)
+        self.assertAlmostEqual(pending(engine)[2].entry, 1.10186)
+        self.assertAlmostEqual(pending(engine)[1].stop, STOP)
+
     def test_r_targets_from_each_legs_entry(self):
         lv = fib_levels("long", 1.1000, 1.1100)
         self.assertAlmostEqual(lv.target("2r", lv.leg1), LEG1 + 2 * (LEG1 - STOP))

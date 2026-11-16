@@ -46,10 +46,13 @@ class Params:
     anchoring: str = "running"   # "running" (main run) or "confirmed" (robustness run)
     warmup: int = 200            # H1 bars discarded before any swing logic (§1)
     atr_period: int = 14
+    zone_shift: float = 0.0      # zone-shift control (§10): +0.05 moves 61.8-76.4% to 66.8-81.4%
 
     def __post_init__(self):
         if self.mode not in MODES or self.target not in TARGETS or self.anchoring not in ("running", "confirmed"):
             raise ValueError(f"bad params: {self}")
+        if not FIB["leg2"] - self.zone_shift > FIB["stop"]:
+            raise ValueError(f"zone shift {self.zone_shift} puts leg 2 at or past the stop")
 
 
 @dataclass(frozen=True)
@@ -74,14 +77,19 @@ class Levels:
         return entry + sign * int(variant[0]) * abs(entry - self.stop)
 
 
-def fib_levels(side, origin, extreme):
+def fib_levels(side, origin, extreme, zone_shift=0.0):
     """Levels for a swing from `origin` to `extreme` (works for both sides).
 
     Worked example (buy): origin 1.1000, extreme 1.1100 -> leg 1 1.1038, leg 2 1.1024,
     stop 1.0990, TP1 1.1062, TP2 1.1100, TP3 1.1162.
+
+    zone_shift moves both entries deeper into the retracement by that fraction of
+    the swing (zone-shift control, §10); the stop and targets stay put. With +0.05
+    the zone becomes 66.8-81.4%: leg 1 1.10332, leg 2 1.10186.
     """
     swing = extreme - origin          # negative for a sell
-    return Levels(side, **{name: origin + f * swing for name, f in FIB.items()})
+    fractions = dict(FIB, leg1=FIB["leg1"] - zone_shift, leg2=FIB["leg2"] - zone_shift)
+    return Levels(side, **{name: origin + f * swing for name, f in fractions.items()})
 
 
 @dataclass
@@ -90,6 +98,7 @@ class Candidate:
     origin: object               # Pivot
     extreme: Point               # running extreme since the origin (fixed when anchoring="confirmed")
     fixed: bool = False
+    zone_shift: float = 0.0
     armed_at: Optional[int] = None
     skip_legs: set = field(default_factory=set)
     placed: Optional[Levels] = None   # levels of the orders now resting in the engine
@@ -103,7 +112,7 @@ class Candidate:
         return (self.side, self.origin.time)
 
     def levels(self):
-        return self.frozen or fib_levels(self.side, self.origin.price, self.extreme.price)
+        return self.frozen or fib_levels(self.side, self.origin.price, self.extreme.price, self.zone_shift)
 
 
 class PairSignals:
@@ -201,14 +210,14 @@ class PairSignals:
                 self._cancel(engine, old, "replaced")
         if self.p.anchoring == "running":
             # Origin confirmed; the extreme runs from the new leg's extreme so far.
-            self.latest[side] = Candidate(side, pivot, self.zigzag.extreme)
+            self.latest[side] = Candidate(side, pivot, self.zigzag.extreme, zone_shift=self.p.zone_shift)
         elif len(self.zigzag.pivots) >= 2:
             # Robustness run: the pivot completes a swing from the previous pivot,
             # both ends confirmed. A swing high completes a buy swing, and vice versa.
             prev = self.zigzag.pivots[-2]
             swing_side = "long" if pivot.kind == "high" else "short"
             self.latest[swing_side] = Candidate(swing_side, prev, Point(pivot.price, pivot.index, pivot.time),
-                                                fixed=True)
+                                                fixed=True, zone_shift=self.p.zone_shift)
         self._log(engine, "pivot", pivot.kind, pivot.price, pivot.time)
 
     # ---- 4. re-anchoring ----

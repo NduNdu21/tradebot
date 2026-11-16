@@ -113,7 +113,7 @@ def trade_table(trades):
     rows = []
     for t in trades:
         row = {k: getattr(t, k) for k in ("pair", "setup_id", "leg", "side", "entry_time", "entry_price",
-                                          "units", "exit_time", "exit_price", "exit_reason",
+                                          "units", "stop", "target", "exit_time", "exit_price", "exit_reason",
                                           "risk_gbp", "fallback")}
         row["pnl_on"] = t.pnl_gbp + t.financing_gbp
         row["pnl_off"] = t.pnl_gbp
@@ -204,6 +204,7 @@ class Engine:
         #   weekend_hold: legs left open across a market closure
         self.counts = Counter()
         self.weekend_holds = []                            # (pair, setup_id, leg, last candle, reopen)
+        self.target_before_fill = []                       # (time, pair), to count them by period
 
     @property
     def sizing_base(self):
@@ -327,6 +328,7 @@ class Engine:
         if "target" in exits and not self.open[pair] and self.pending[pair]:
             if any(self._fill_price(o, bar)[0] is not None for o in self.pending[pair].values()):
                 self.counts["target_before_fill"] += 1
+                self.target_before_fill.append((t, pair))
             self._end_setup_if_closed(pair)
             return
         # 2c. Pending entries. A leg filled inside the candle can be stopped in it
