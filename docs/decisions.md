@@ -141,3 +141,19 @@
   The unit test had used synthetic legs that included them; there is now a test on real `trade_table` output.
 - Per §10 a fail means no demo trading and no re-tuning on the same data. The hold-out is still unused: it stays
   available, once, for a new pre-registered variant. Step 6 (hold-out lock) only matters if one is pre-registered.
+
+## 2026-11-16 — Fail accepted; diagnostics; open items frozen
+- Owner accepted the fail. Strategy rules unchanged, hold-out untouched. The 20 items Claude filled in are frozen as
+  written (strategy.md now marks them *(frozen)*).
+- `src/diagnostics.py` (development only; results in docs/backtests.md under "Diagnostics"):
+  1. Baseline cell (K=3, mb=5) with zero spread (bid = ask = mid, so signals are unchanged), zero slippage and
+     financing off: −0.036R per setup (SE 0.041), against −0.157R with costs. Costs are about 0.12R per setup;
+     the cost-free result is indistinguishable from zero.
+  2. Five legs drawn with seed 2026, listed with geometry, entry, stop, target, exit and R for chart checks.
+     Trade 2 is a limit filled at the open beyond its price: the order went in after the market had already
+     passed the limit, so it filled at the better price, and its R (−0.83) is measured against the planned risk
+     from the limit.
+  3. In-sample random-entry control on the baseline cell, 1,000 runs, random time within the same development
+     year: median −0.103R, 5th–95th percentile −0.168 to −0.036R. The strategy (−0.157R) is at the 9.5th
+     percentile. Caveat: busy-pair redraws and drops leave about 1,677 random setups per run against 1,910 real.
+- README added with the method and the negative result.

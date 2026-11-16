@@ -560,11 +560,12 @@ def primary_oos_legs(a):
     return legs[keep]
 
 
-def write_report(text, path=REPORT_PATH):
+def write_report(text, path=REPORT_PATH, markers=MARKERS):
+    """Replace the text between `markers` in the report (or append it)."""
     old = open(path).read() if os.path.exists(path) else "# Backtest results\n"
-    if MARKERS[0] in old:
-        head, rest = old.split(MARKERS[0], 1)
-        tail = rest.split(MARKERS[1], 1)[1] if MARKERS[1] in rest else ""
+    if markers[0] in old:
+        head, rest = old.split(markers[0], 1)
+        tail = rest.split(markers[1], 1)[1] if markers[1] in rest else ""
         new = head + text + tail
     else:
         new = old.rstrip("\n") + "\n\n" + text + "\n"

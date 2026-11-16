@@ -1,8 +1,9 @@
 # Strategy: Fibonacci swing-to-swing retracement
 
 Pairs: EUR_USD, GBP_JPY. Signals on H1, all fills simulated on M5.
-Rules agreed 2026-11-14, revised then and on 2026-11-15. Items marked *(proposed)* were
-filled in by Claude to make a rule testable and still need the owner's sign-off.
+Rules agreed 2026-11-14, revised then and on 2026-11-15 and 2026-11-16. Items marked *(frozen)*
+were filled in by Claude to make a rule testable. All 20 were frozen as written on 2026-11-16,
+after the primary failed (§10): they are part of the rules that were tested and must not change.
 
 Worked example used throughout (up-swing; sells are the mirror image):
 swing low 1.1000 → swing high 1.1100, range 0.0100.
@@ -35,9 +36,9 @@ Levels are measured from the origin (0%) toward the extreme (100%).
   Mid OHLC = (bid + ask) / 2, field by field.
 - ATR(14) uses H1 mid prices with Wilder smoothing, seeded with the simple average
   of the first 14 true ranges. True range keeps weekend gaps (it uses the previous
-  close). The very first bar has no previous close, so its TR is high − low *(proposed)*.
+  close). The very first bar has no previous close, so its TR is high − low *(frozen)*.
 - The first 200 H1 bars are warm-up: they feed ATR only, with no swings or setups.
-- Swings and setups use H1 mid prices too *(proposed)*; orders placed at those levels fill on bid/ask (§8).
+- Swings and setups use H1 mid prices too *(frozen)*; orders placed at those levels fill on bid/ask (§8).
 
 ## 2. Swings
 - A swing ends when price reverses at least K × ATR(14) from its extreme
@@ -49,7 +50,7 @@ Levels are measured from the origin (0%) toward the extreme (100%).
 - A bar that makes a new extreme can't also confirm it, because on H1 we can't tell
   whether its high or its low came first. Confirmation needs a later bar.
 - Before the first pivot, both sides are tracked; whichever first sees a K × ATR
-  reversal gives the first pivot *(proposed)*.
+  reversal gives the first pivot *(frozen)*.
 
 ## 3. Setup (anchoring)
 **Main run: confirmed origin with a running extreme (no lookahead).**
@@ -58,7 +59,7 @@ Levels are measured from the origin (0%) toward the extreme (100%).
 - **Extreme** = the highest high (lowest low) since the origin. It's known at every bar.
 - The setup is **armed** once range ≥ K × ATR (ATR at that H1 close) and the
   origin→extreme span ≥ min_bars (bar-index difference). Once armed it stays armed,
-  even if ATR later grows *(proposed)*.
+  even if ATR later grows *(frozen)*.
 - Before any fill, a new high (new low for sells) beyond the extreme **re-anchors**
   the fib in every mode: the levels move to the new extreme at the next H1 close.
   A new extreme never cancels a setup.
@@ -72,11 +73,11 @@ Levels are measured from the origin (0%) toward the extreme (100%).
   doesn't cancel the buy, because its origin is still the latest confirmed low. A sell
   from that high may arm too, but it waits. The holder keeps the pair until it
   finishes; then a waiting armed setup takes over. If several are waiting, the newest
-  origin goes first *(proposed)*.
+  origin goes first *(frozen)*.
 
 **Robustness run: fully confirmed swings.** Only trade a swing after both ends are
 ATR-confirmed. If price is already past the entry level at confirmation, skip that
-leg: "past" means the confirmation bar closed at or beyond the entry *(proposed)*.
+leg: "past" means the confirmation bar closed at or beyond the entry *(frozen)*.
 
 ## 4. Entry modes
 Legs are independent. Each leg is either filled or not; neither waits on the other.
@@ -95,16 +96,16 @@ Legs are independent. Each leg is either filled or not; neither waits on the oth
 - Limits are live from arming until the setup is cancelled or the position closes.
 - A leg the engine skipped (exposure cap, or a market entry through its stop or
   target) isn't re-placed. A later confirmation candle can still trigger a skipped
-  mode-b leg 1 *(proposed)*.
+  mode-b leg 1 *(frozen)*.
 - After a mode-b confirmation, leg 2 stays at the confirmation's levels until the
-  market entry has gone through, so both legs share one geometry *(proposed)*.
+  market entry has gone through, so both legs share one geometry *(frozen)*.
 - Both legs share one stop. No further adds. Unfilled legs cancel when the
   position closes. One position per pair at a time; each setup trades at most once.
 
 ## 5. Cancelling a pending setup
 A setup with no filled leg is cancelled when any of these happens, checked at H1 close:
 1. price has traded through the stop level (origin − 10% of range), judged on the
-   H1 mid low for buys and the mid high for sells *(proposed)*;
+   H1 mid low for buys and the mid high for sells *(frozen)*;
 2. a newer confirmed swing of the origin's kind replaces it: a new swing low for a
    buy, a new swing high for a sell;
 3. 96 H1 bars pass without a fill (sensitivity: 48 and 200), counted from arming.
@@ -215,33 +216,33 @@ A new extreme is not a cancel: it re-anchors the setup (§3).
 - **Walk-forward** over development: 3-year train, 1-year test, rolling yearly,
   giving 5 out-of-sample years from 2019-11 to 2024-11.
   - Each grid cell is one continuous run over development; a setup belongs to the
-    window of its first fill *(proposed)*. Setups with a leg still open when the data
-    ends are dropped *(proposed)*.
+    window of its first fill *(frozen)*. Setups with a leg still open when the data
+    ends are dropped *(frozen)*.
   - **Selection rule**, inside each training window: score = mean setup R minus one
     standard error. A cell is eligible with at least 30 setups and positive mean R
-    of its own *(proposed: from "neighbours are also positive")*, and every orthogonal
+    of its own *(frozen; from "neighbours are also positive")*, and every orthogonal
     neighbour in the K × min_bars grid must have positive mean R (a neighbour with no
-    setups doesn't count as positive *(proposed)*). Highest score wins; ties go to
+    setups doesn't count as positive *(frozen)*). Highest score wins; ties go to
     more setups. Apply it blind to the next year.
-  - If no cell is eligible, that test year is sat out with no trades *(proposed)*.
+  - If no cell is eligible, that test year is sat out with no trades *(frozen)*.
   - Never select anything on out-of-sample results.
 - **Random-entry control** (primary only; 1,000 runs; the primary's OOS expectancy
   must beat the 95th percentile). Each run re-enters every primary OOS setup:
   - same pair, side and test year; entry at market at the open of a random H1 bar,
-    the hour drawn from that pair's real first-fill hours (UTC hours *(proposed)*);
+    the hour drawn from that pair's real first-fill hours (UTC hours *(frozen)*);
     the decision is at the previous H1 close, like a mode-b entry;
   - each real leg is one market leg with its real stop and target distances in price
-    (taken from the fill price *(proposed)*), placed around the decision bar's mid
-    close *(proposed)*;
+    (taken from the fill price *(frozen)*), placed around the decision bar's mid
+    close *(frozen)*;
   - the same engine and primary config: spread, slippage, financing, caps, Friday
     close, one setup per pair. Bars inside the pulled Friday/holiday window can't be
-    drawn *(proposed)*. A draw that finds the pair busy is redrawn later in the same
-    test year; if no bar at the drawn hour is left it's dropped and counted *(proposed)*.
+    drawn *(frozen)*. A draw that finds the pair busy is redrawn later in the same
+    test year; if no bar at the drawn hour is left it's dropped and counted *(frozen)*.
 - **Zone-shift control** (primary only): equal-width zones shifted in 5-point steps
   (retracement %): 51.8–66.4, 56.8–71.4, **61.8–76.4**, 66.8–81.4, 71.8–86.4. Report
   the full curve. 61.8–76.4 must beat both immediate neighbours on OOS expectancy.
   Only the two entries move; stop and targets stay where they are, and each zone gets
-  its own walk-forward *(proposed)*.
+  its own walk-forward *(frozen)*.
 
 ### Reporting (docs/backtests.md)
 For every cell, with all results in planned R: trade counts, longs and shorts
