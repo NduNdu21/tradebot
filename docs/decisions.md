@@ -157,3 +157,12 @@
      year: median −0.103R, 5th–95th percentile −0.168 to −0.036R. The strategy (−0.157R) is at the 9.5th
      percentile. Caveat: busy-pair redraws and drops leave about 1,677 random setups per run against 1,910 real.
 - README added with the method and the negative result.
+
+## 2026-11-17 — New strategy: trend + carry
+- The Fibonacci strategy is retired after its failed test. Larger swings (K=4) did worse than K=3 in the primary and
+  with Friday close off, so changing how the swing low is picked was not pursued.
+- Owner's choices: trend following combined with carry, a basket of 10–15 currency pairs, daily signals with
+  positions held for weeks. Reason: H1 costs (about 0.12R per setup) left no room for an edge, and trend and carry
+  are the FX effects with the longest published evidence, which needs many pairs.
+- Draft rules in `docs/strategy-trend-carry.md`; everything except the three choices above is *(proposed)* and
+  awaits the owner's rulings. The hold-out (2024-11-14 → 2026-11-13) is still unused and reserved for this strategy.
