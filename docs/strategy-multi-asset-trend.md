@@ -43,6 +43,10 @@ moved together. Here FX is one class of four.
 - **Equal risk per class:** each class gets GBP 25 per ATR20 (0.25% of the GBP 10,000 base), split equally across
   its members: U = (25 / class size) / (ATR20 × quote→GBP). So an index gets £4.17 per ATR, a bond £6.25, a metal
   £12.50, an FX pair £2.08. That is less than half of strategy 2's total risk.
+- **Units are rounded to OANDA's trade precision** (fetched 2026-11-25): 0.01 for SPX500, DE30, JP225; 0.1 for
+  UK100, AU200, EU50, XAU; whole units for bonds, XAG and FX. A target that rounds to 0 is flat. This is what a
+  GBP 10,000 account could actually hold; at £4.17 per ATR some index targets round coarsely or to zero. An
+  unrounded run is reported. *(Added before any result, after checking the precision.)*
 
 ## 4. Entry, exit, rebalancing
 Strategy 2's §4, unchanged: signals at the 17:00 New York close; orders at the open of the next bar's 08:00 New York
@@ -85,7 +89,7 @@ CAD via GBP_CAD, JPY via GBP_JPY, GBP = 1.
 
 **Hold-out pass bar:** Sharpe > 0 and max drawdown < 15%.
 
-**Reported but not judged:** each class on its own, no dividends, bond carry 0, financing off, per year, per
+**Reported but not judged:** each class on its own, unrounded units, no dividends, bond carry 0, financing off, per year, per
 instrument, costs, peak margin, average holding length.
 
 Published multi-asset trend results since 2010 are weaker than the long history (roughly Sharpe 0.3–0.6 for
