@@ -283,3 +283,18 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   +0.208 (n 72) and shorts −0.319 (n 159) under the primary. Max drawdown at 0.5% risk: 29.3 points.
 - Under §10 item 4 the strategy fails; no re-tuning on the same data.
 - Re-run after the final review fixed R to use the actual fill price on gapped limit fills (it had used the limit price; 15 of 231 primary trades affected). A bug fix, not re-tuning; the verdict was unchanged: fail.
+
+## 2026-11-25 — Trend + carry: rules fixed under delegation
+- The owner handed every remaining rule to Claude: "build out the step two trend with carry idea. make all trading
+  decisions that will lead to profitability. determine entry and exit rules." No rule can be chosen to guarantee
+  profit, and choosing rules by looking at results would only fit noise. So the rules and pass bar in
+  `docs/strategy-trend-carry.md` were fixed from published research, before any data was looked at, and the
+  pre-registered method (one development run, hold-out once, a fail is final) is kept.
+- Main choices: two equal-risk sleeves (trend score from 63/126/252-day signs; carry sign net of OANDA's markup),
+  volatility sizing at 0.25% per ATR20 per sleeve, signal exits only (no stop), orders at the 08:00 New York H1
+  open, 0.5 pip slippage (1.0 on JPY crosses).
+- Rates: OECD monthly interbank rates from FRED for all 8 currencies, lagged one month, instead of extending
+  `src/financing.py`'s hand-built policy-rate tables (those start in 2015–2016 and cover 4 currencies; strategy 1's
+  module stays frozen).
+- Financing markup: OANDA's rates for the 12 pairs on 2026-11-25 sum (long + short) to −2.0% to −2.1% on every
+  pair, so a flat 1% per side is used.
