@@ -126,7 +126,19 @@ def daily_table(candles):
                         index=pd.DatetimeIndex(idx))
 
 
-DAILY = daily_frame(17600, 18400)  # 50% = 18,000, as in the worked example
+DAILY = daily_frame(17600, 18400)
+
+# Overrides shared by a rule test and a truncation check.
+# Shift 08:55; gap 08:45 -> 08:55 not in premium; gap 08:50 -> 09:00 (edge 18,085) is.
+AFTER_SHIFT = {"08:50": (18091, 18089, 18090), "08:55": (18078, 18050, 18052),
+               "09:00": (18085, 18060, 18070)}
+# Worked-example order at 09:00, then a re-arm at 09:20 and a second order at 09:35.
+REARM_AFTER_ORDER = {
+    "09:05": (18085, 18050, 18080), "09:10": (18100, 18075, 18095),
+    "09:15": (18108, 18070, 18100), "09:20": (18125, 18100, 18110),
+    "09:25": (18105, 18085, 18090), "09:30": (18095, 18050, 18060),
+    **flat("09:35", "11:00", 18080, 18065),
+}  # 50% = 18,000, as in the worked example
 
 
 def ny(clock, day=DAY):
@@ -237,16 +249,28 @@ class TestFVG(unittest.TestCase):
         self.assertEqual(skips, Counter({"fvg_not_premium": 1}))
 
     def test_two_fvgs_uses_nearest_sweep(self):
-        # §6: gaps 08:45 -> 08:55 (18,095 -> 18,090) and 08:50 -> 09:00 (18,080 -> 18,072) both
-        # qualify (shift at 09:00, range 18,112 -> 18,020, 50% 18,066). The first is nearest the sweep.
-        table = rows({"08:45": (18112, 18095, 18100), "08:50": (18094, 18080, 18085),
-                      "08:55": (18090, 18070, 18075), "09:00": (18072, 18020, 18040)})
+        # §6 ("nearest the sweep extreme, i.e. the deepest in premium" = a price measure, controller
+        # ruling): gaps 08:45 -> 08:55 (18,100 -> 18,075) and 08:50 -> 09:00 (18,095 -> 18,090), shift
+        # at 09:00, range 18,112 -> 18,030, 50% 18,071: both in premium. The later gap's near edge
+        # 18,090 is closer in price to the 18,112 extreme than 18,075, so it is used.
+        table = rows({"08:45": (18112, 18100, 18105), "08:50": (18108, 18095, 18098),
+                      "08:55": (18075, 18040, 18065), "09:00": (18090, 18030, 18050)})
         orders, _ = run(table)
         self.assertEqual(len(orders), 1)
         o = orders[0]
-        self.assertEqual((o.entry, o.stop), (18090, 18112))
-        self.assertEqual(o.notes["fvg_candle1_time"], ny("08:45"))
+        self.assertEqual((o.entry, o.stop), (18090, 18108))
+        self.assertEqual(o.notes["fvg_candle1_time"], ny("08:50"))
         self.assertEqual(o.placed_time, ny("09:05"))
+
+    def test_two_fvgs_equal_price_uses_earlier(self):
+        # §6: both near edges 18,090 (gaps 18,100 -> 18,090 and 18,095 -> 18,090): a tie on price
+        # goes to the earlier candle 1 (08:45, stop 18,112).
+        table = rows({"08:45": (18112, 18100, 18105), "08:50": (18108, 18095, 18098),
+                      "08:55": (18090, 18040, 18065), "09:00": (18090, 18030, 18050)})
+        orders, _ = run(table)
+        self.assertEqual(len(orders), 1)
+        self.assertEqual((orders[0].entry, orders[0].stop), (18090, 18112))
+        self.assertEqual(orders[0].notes["fvg_candle1_time"], ny("08:45"))
 
     def test_nearest_fvg_not_premium_uses_farther_premium_one(self):
         # §6 (controller ruling): "qualifies" = in the window AND in premium. Gaps 08:45 -> 08:55
@@ -268,9 +292,7 @@ class TestFVG(unittest.TestCase):
         # 18,112 -> 18,050 (18,081). The gap 08:50 -> 09:00 (18,089 -> 18,085) ends on the candle
         # after the shift; range through 09:00 is still 18,112 -> 18,050, and 18,085 is in premium.
         # Placed at 09:05. Target: the 08:55 swing low 18,050, confirmed at 09:05.
-        table = rows({"08:50": (18091, 18089, 18090), "08:55": (18078, 18050, 18052),
-                      "09:00": (18085, 18060, 18070)})
-        orders, skips = run(table)
+        orders, skips = run(rows(AFTER_SHIFT))
         self.assertEqual(skips, Counter())
         self.assertEqual(len(orders), 1)
         o = orders[0]
@@ -417,13 +439,7 @@ class TestRearm(unittest.TestCase):
     def test_rearm_after_order_placed(self):
         # §5 re-arm: the worked-example order at 09:00, then 09:20 trades to 18,125: cycle 2,
         # short-term low 18,070 (09:15), FVG 09:20 -> 09:30 (18,100 -> 18,095), shift at 09:30.
-        table = rows({
-            "09:05": (18085, 18050, 18080), "09:10": (18100, 18075, 18095),
-            "09:15": (18108, 18070, 18100), "09:20": (18125, 18100, 18110),
-            "09:25": (18105, 18085, 18090), "09:30": (18095, 18050, 18060),
-            **flat("09:35", "11:00", 18080, 18065),
-        })
-        orders, skips = run(table)
+        orders, skips = run(rows(REARM_AFTER_ORDER))
         self.assertEqual(skips, Counter())
         self.assertEqual([o.cycle for o in orders], [1, 2])
         self.assertEqual(orders[0].placed_time, ny("09:00"))
@@ -445,6 +461,18 @@ class TestNoLookahead(unittest.TestCase):
                 self.assertEqual(orders, [], cut)
             else:
                 self.assertEqual(orders, expected, cut)
+
+    def test_truncation_other_tables(self):
+        # Review Focus 2: cut at every M5 time 08:30 -> 11:05. The orders found on the cut data
+        # are exactly the full-data orders placed by the cut (shift+1 FVG path, and a re-arm day).
+        for name, overrides, n_orders in (("after_shift", AFTER_SHIFT, 1),
+                                          ("rearm", REARM_AFTER_ORDER, 2)):
+            full = frame(rows(overrides))
+            expected, _ = find_orders(full, DAILY, "NAS100_USD", DAY, "close")
+            self.assertEqual(len(expected), n_orders, name)
+            for cut in pd.date_range(ny("08:30"), ny("11:05"), freq="5min"):
+                orders, _ = find_orders(full[full.index < cut], DAILY, "NAS100_USD", DAY, "close")
+                self.assertEqual(orders, [o for o in expected if o.placed_time <= cut], (name, cut))
 
 
 class TestBarLength(unittest.TestCase):
