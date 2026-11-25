@@ -34,6 +34,8 @@ class Result:
     exit_reason: Optional[str] = None   # "stop", "target", "time"
     r: Optional[float] = None
     stop_first: bool = False            # a bar touched both stop and target; the stop was counted (§9)
+    # Unfilled orders only: the bar time at which the order was cancelled (it was pending until then).
+    resolved_time: Optional[pd.Timestamp] = None
 
 
 def simulate(order: Order, m1: pd.DataFrame) -> Result:
@@ -67,6 +69,7 @@ def simulate(order: Order, m1: pd.DataFrame) -> Result:
     for t, b in view.iterrows():
         if not filled:
             if t >= entry_end:                       # §6: 11:00 cancels an unfilled order
+                result.resolved_time = t
                 return result
             hit_entry = b.bid_h >= entry
             hit_stop = b.ask_h >= stop
@@ -74,10 +77,10 @@ def simulate(order: Order, m1: pd.DataFrame) -> Result:
             if hit_entry and hit_stop:
                 pass                                 # fills and is stopped out below (conservative)
             elif hit_target:                         # §6: target before a fill cancels, even in the fill bar
-                result.status = "cancelled_target"
+                result.status, result.resolved_time = "cancelled_target", t
                 return result
             elif hit_stop:
-                result.status = "cancelled_stop"
+                result.status, result.resolved_time = "cancelled_stop", t
                 return result
             elif not hit_entry:
                 continue
@@ -103,6 +106,8 @@ def simulate(order: Order, m1: pd.DataFrame) -> Result:
         if hit_target:                               # limit target: the open if it gaps past, else target
             return _exit(result, sign, t, min(target, b.ask_o), "target", entry, risk)
 
+    if not filled:                                   # ran out of bars: pending until the 11:00 cut-off
+        result.resolved_time = entry_end
     if filled:                                       # no bar to close on (data gap): Task 6 counts these
         result.status = "no_exit_data"
     return result

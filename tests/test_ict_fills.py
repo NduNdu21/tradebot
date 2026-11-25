@@ -222,5 +222,26 @@ class LongTests(unittest.TestCase):
         self.assertAlmostEqual(r.r, 39 / 34)
 
 
+class ResolvedTimeTests(unittest.TestCase):
+    """Result.resolved_time: when an unfilled order stopped being pending (used by the runner)."""
+
+    def test_cancel_times(self):
+        stop = simulate(short_order(), frame({"09:01": (18050, 18055, 18045, 18050, 60)}))  # wide spread
+        self.assertEqual((stop.status, stop.resolved_time), ("cancelled_stop", ts("09:01")))
+        target = simulate(short_order(), frame({"09:01": (18000, 18005, 17989, 17995)}))
+        self.assertEqual((target.status, target.resolved_time), ("cancelled_target", ts("09:01")))
+        late = simulate(short_order(), frame({"09:01": FLAT, "11:00": FILL}))
+        self.assertEqual((late.status, late.resolved_time), ("cancelled_time", ts("11:00")))
+
+    def test_cancelled_time_without_bars_resolves_at_1100(self):
+        r = simulate(short_order(), frame({"09:01": FLAT}))
+        self.assertEqual((r.status, r.resolved_time), ("cancelled_time", ts("11:00")))
+
+    def test_filled_has_no_resolved_time(self):
+        r = simulate(short_order(), frame({"09:01": FILL, "12:00": FLAT}))
+        self.assertEqual(r.status, "filled")
+        self.assertIsNone(r.resolved_time)
+
+
 if __name__ == "__main__":
     unittest.main()
