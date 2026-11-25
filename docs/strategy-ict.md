@@ -47,6 +47,8 @@ mirror image.
 - Range = the most recent confirmed daily swing high and the most recent confirmed daily swing low.
   50% = their midpoint.
 - **Shorts only if the entry price is above 50% (premium); longs only if it is below (discount).**
+- A daily swing counts only once the daily candle to its right has closed at 17:00 New York (§2): a Tuesday swing
+  high is usable from Wednesday 17:00. The daily candle still forming is never used.
 - Checked against the limit price when the order is placed *(proposed)*. A price exactly at 50% allows
   neither *(proposed)*.
 - Based on Ep7 03:40–09:40 and Ep10 04:00–07:00 (premium/discount of the daily dealing range). ICT decides bias
@@ -58,6 +60,8 @@ mirror image.
   "first" looking back from 08:30)*.
 - **Sweep (short):** an M5 candle between 08:30 and 11:00 trades above the pre-08:30 swing high (Ep4 03:00).
   A wick is enough. There's no minimum or maximum distance *(proposed; ICT gives none for indices)*.
+- No lookback limit on the levels *(proposed)*: these CFDs trade overnight, so the most recent swing before 08:30
+  is almost always from the overnight session. Missing data is handled by the 08:00–12:00 completeness check (§7).
 - **Sweep extreme** = the highest high from the sweep candle until the shift (§5).
 - A level can be swept only once a day. If both levels are swept, each can make its own setup, but only one
   trade per instrument per day is allowed (§7).
@@ -68,8 +72,12 @@ mirror image.
 - **Primary (owner's ruling 2026-11-25):** an M5 candle **closes** below the short-term low (Ep6 19:40–21:00,
   23:40).
 - **Rescue variant:** an M5 candle **trades** below it; a wick is enough (Ep4 07:20). How it is judged is in §10.
-- If price makes a new high above the sweep extreme before the shift, the sweep extreme moves up to it, and the
-  short-term low is re-read from before the new extreme *(proposed)*.
+- **Re-arm (owner's ruling 2026-11-25):** until 11:00, any M5 candle that trades above the current sweep extreme
+  becomes the new sweep extreme and starts the cycle again: the short-term low is re-read from before it, and a new
+  shift and a new FVG are needed. This applies before the shift, after a shift that produced no order (no FVG,
+  not in premium, bias or target failed), and after an order was placed. In the last case the earlier order is
+  already filled or cancelled by then, because the new high is above its stop. Orders from re-armed cycles are
+  counted in the report.
 - Cancel if no shift by 11:00 *(proposed; follows the 11:00 entry limit)*.
 
 ## 6. FVG and entry
@@ -85,14 +93,22 @@ mirror image.
   *(proposed; Ep3 42:00 describes waiting for the deeper gap but gives only one example)*.
 - **Entry:** sell limit at the FVG's near edge (candle 3's high), placed at the close of the candle that completes
   both the shift and the FVG (Ep6 35:40–36:20). No extra tick *(proposed)*.
+- **No order is placed at or after 11:00.** If the candle that completes the shift and FVG closes at 11:00 or later,
+  the setup is skipped as too late *(proposed)*.
 - The order is cancelled if, before filling: 11:00 arrives; price trades through the stop level; or price reaches
-  the target *(proposed)*.
+  the target *(proposed)*. Each is checked on M1 on the side that would trigger it: for a short, the stop and target
+  on the ask (the side a short exits on) *(proposed)*. A cancelled order is final; only a re-arm (§5) can make a new
+  one.
 - Minimum FVG size: none *(proposed; ICT gives none)*.
 
 ## 7. Stop, target, exits, limits
-- **Stop:** above candle 1's high (owner's ruling 2026-11-25, from Ep6 36:00). No buffer *(proposed)*.
+- **Stop:** above candle 1's high (owner's ruling 2026-11-25, from Ep6 36:00). No buffer *(proposed)*. Candle 1
+  can be later than the sweep-extreme candle, so the stop can sit below the sweep extreme; the owner chose candle 1
+  over the sweep extreme knowing this.
 - **Target:** the nearest confirmed M5 swing low below the dealing range's 50%, formed in the 24 hours before
   the order is placed and not yet traded through *(proposed; from Ep4 02:00–02:40, "an old low below equilibrium")*.
+  "Traded through" means any M5 mid low at or below the swing low's price after the swing candle and up to the
+  candle where the order is placed; a touch counts *(proposed)*.
   If there is none, skip the setup *(proposed)*.
 - No minimum reward-to-risk *(proposed; ICT gives none)*.
 - **Time exit:** anything still open at 12:00 closes at market (owner's ruling 2026-11-25).
@@ -137,7 +153,7 @@ period *(proposed)*.
 max drawdown < 15% at 0.5% risk per trade.
 
 **Reported but not judged** *(proposed)*: the other shift version (if not used), longs and shorts separately,
-per instrument, per year, the stop-first count (§9), skipped setups by reason, and an execution-chart sensitivity
+per instrument, per year, the stop-first count (§9), orders from re-armed cycles (§5), skipped setups by reason, and an execution-chart sensitivity
 on M1 and M2.
 
 ## Still open

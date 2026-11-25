@@ -153,6 +153,7 @@ each order out and returns a trade in R. A runner applies the §10 protocol and 
       target: float
       sweep_level: float
       notes: dict          # sweep extreme, short-term swing, FVG bounds, dealing-range 50%, daily 50%
+      cycle: int           # 1 for the first cycle on a level that day, 2+ for re-armed cycles (§5)
   ```
 - Produces: `daily_bias_mid(daily: DataFrame, at: Timestamp) -> Optional[float]`: midpoint of the latest daily swing
   high and low confirmed before `at` (§3); daily candles are 17:00→17:00 New York, built by
@@ -160,11 +161,15 @@ each order out and returns a trade in R. A runner applies the §10 protocol and 
 - Produces: `find_orders(m5: DataFrame, daily: DataFrame, instrument: str, day: date, shift_rule: str) -> tuple[list[Order], Counter]`
   with `shift_rule` ∈ {"close", "wick"}. Walks M5 closes from 08:30 to 11:00 New York and returns every order the
   rules produce that day in time order, plus a Counter of skip reasons (`"no_shift"`, `"no_fvg"`,
-  `"fvg_not_premium"`, `"bias"`, `"no_target"`). Task 6 applies the one-trade-per-day rule.
+  `"fvg_not_premium"`, `"bias"`, `"no_target"`, `"too_late"`). Task 6 applies the one-trade-per-day rule.
 
 Rules to implement, all from the spec (shorts; longs mirror): levels = latest M5 swing high and low confirmed
 before 08:30 (§4); a sweep is a candle 08:30–11:00 whose `mid_h` exceeds the level, each level once a day; the
-sweep extreme moves up with new highs before the shift, re-reading the short-term low (§5); short-term low =
+until 11:00, any candle trading above the current sweep extreme becomes the new extreme and restarts the cycle
+(new short-term low, shift and FVG), whether before the shift, after a shift that produced no order, or after an
+order was placed (§5 re-arm); no order placed at or after 11:00 (§6); a target swing low is traded through if any
+M5 `mid_l` ≤ its price after the swing candle up to the placement candle (§7); a daily swing is usable only after
+the daily candle to its right closes at 17:00 (§3); short-term low =
 latest swing low whose `candle_time` is before the sweep-extreme candle; shift = `mid_c` below it ("close") or
 `mid_l` below it ("wick"); FVG window and selection, premium check against the dealing range fixed at placement,
 entry, stop and target exactly per §6–§7; bias check per §3 against the entry price.
@@ -186,6 +191,19 @@ entry, stop and target exactly per §6–§7; bias check per §3 against the ent
   - `test_new_high_before_shift_moves_extreme`: a higher high at 08:50 before the shift → stop at the new
     extreme's candle-1 high.
   - `test_no_sweep_after_1100`: a sweep candle at 11:00 → no order.
+  - `test_rearm_after_no_fvg`: the worked-example shift with no FVG (`no_fvg`), then a 09:30 candle trades to
+    18,130, a new short-term low breaks and an FVG forms → one Order with `cycle == 2`, stop above the new
+    cycle's candle 1.
+  - `test_rearm_after_order_placed`: the worked-example order at 09:00, then a 09:20 high of 18,125 and a new
+    shift + FVG → two Orders, cycles 1 and 2, the second placed after 09:20.
+  - `test_too_late`: shift candle 10:55 (closes 11:00) with FVG candle 3 at 11:00 → `too_late`, no order.
+  - `test_target_traded_through_is_skipped`: an M5 low touching 17,990 exactly between the swing and placement →
+    17,990 is not the target; the next qualifying low (or `no_target`) is used.
+  - `test_stop_below_sweep_extreme`: candle 1 is the candle after the sweep extreme, high 18,095 → stop 18,095,
+    not 18,112.
+  - `test_daily_bias_waits_for_confirmation`: a daily swing high closing Tuesday 17:00 is ignored by
+    `daily_bias_mid` at Wednesday 09:00 and used at Thursday 09:00; changing only the forming day's candle never
+    changes the result.
   - `test_truncation_no_lookahead` (Review Focus 2): for the worked example, cutting the frame at each M5 time from
     08:30 to 09:00 gives no order before 09:00 and the same order at and after it.
 - [ ] **Step 2:** Run `tests.test_ict_setups` → FAIL.
@@ -241,7 +259,7 @@ R = signed price P&L ÷ |entry − stop|, where `entry` is the order price.
   `to_daily`, `find_orders` (Task 4); `simulate` (Task 5).
 - Produces: `run(instrument: str, shift_rule: str, exec_tf: str = "5min", m1: Optional[DataFrame] = None) -> tuple[DataFrame, Counter]`.
   One row per filled trade with columns `instrument, day, side, placed_time, entry, stop, target, fill_time,
-  exit_time, exit_reason, r, stop_first, year`; Counter of skipped days and setups by reason.
+  exit_time, exit_reason, r, stop_first, cycle, year`; Counter of skipped days and setups by reason.
   `exec_tf` is the signal chart (`"5min"` primary; `"1min"`, `"2min"` for the §10 sensitivity).
 - Rule: per instrument per day, simulate orders in time order; an order placed while another is pending is
   dropped (`"busy"`); after the first fill, later orders are dropped (`"one_per_day"`).
@@ -252,6 +270,8 @@ R = signed price P&L ÷ |entry − stop|, where `entry` is the order price.
   - `test_one_trade_per_day`: a synthetic day with two orders that would both fill → one trade, Counter
     `one_per_day` = 1.
   - `test_pending_blocks_second_order`: the second order arrives while the first is pending → `busy`.
+  - `test_rearmed_order_after_cancel`: cycle 1's order is cancelled by the new high touching its stop; cycle 2's
+    order then fills → one trade with `cycle == 2`, no `busy`.
   - `test_skips_holiday_and_missing_day` (Review Focus 4): 2023-07-04 → `holiday`; a day with 10:15 missing →
     `missing_m5`; neither raises.
 - [ ] **Step 2–4:** Run → FAIL; implement; run → PASS.

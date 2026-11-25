@@ -195,3 +195,16 @@
   shift gets one rescue attempt at a stricter bar (mean R − 2 SE > 0 instead of − 1 SE). Whichever passes goes
   to the hold-out once; only a hold-out pass counts.
 - Draft rules written to `docs/strategy-ict.md`; Claude's fill-ins are marked *(proposed)*.
+
+## 2026-11-25 — ICT: rules approved; edge cases from an outside review
+- Owner approved `docs/strategy-ict.md` and the build plan (`docs/superpowers/plans/2026-11-25-ict-backtest.md`).
+- An outside review (pasted by the owner) raised edge cases. Owner's ruling: **re-arm on a new high.** Until 11:00,
+  a candle above the current sweep extreme restarts the cycle (new short-term low, shift, FVG), including after a
+  shift that produced no order or after an order was placed. Re-armed orders are counted in the report.
+- Kept as ruled: the stop is above FVG candle 1, even when candle 1 is later than the sweep extreme.
+- Claude's fill-ins (*proposed*): no order placed at or after 11:00; unfilled-order cancels are checked on the
+  exit side (ask for shorts) and are final; "traded through" = any M5 mid low at or below the swing low, a touch
+  counts; daily swings are usable only after the next daily close at 17:00; no lookback cap on the 08:30 levels.
+- Not adopted: the review's lower slippage figures (0.5 / 0.15 points). Real bid/ask spreads are already used on
+  every fill; the 1.0 / 0.25 slippage placeholders stay and are checked against measured spreads in Task 1.
+- Execution: subagent-driven (owner's choice).
