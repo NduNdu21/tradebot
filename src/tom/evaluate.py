@@ -50,16 +50,15 @@ def random_control(trades, days, span, runs=CONTROL_RUNS, seed=SEED):
     rng = np.random.default_rng(seed)
     valid = in_span(trades[INSTRUMENTS[0]], span).index
     months = pd.Series(valid, index=valid).groupby([valid.year, valid.month])
-    groups = [g.values for _, g in months]
+    groups = [valid.get_indexer(pd.DatetimeIndex(g.values)) for _, g in months]
     span_days = days[(days >= span[0]) & (days <= span[1])]
     exit_pos = {inst: span_days.get_indexer(pd.DatetimeIndex(trades[inst]["exit"].reindex(valid)))
                 for inst in INSTRUMENTS}
     totals = {inst: np.nan_to_num(trades[inst]["total"].reindex(valid).values) for inst in INSTRUMENTS}
-    entry_pos = {d: i for i, d in enumerate(valid)}
     out = np.zeros((runs, len(span_days)))
     for g in groups:
         picks = rng.integers(0, len(g), size=runs)
-        rows = np.array([entry_pos[d] for d in g])[picks]
+        rows = g[picks]
         for inst in INSTRUMENTS:
             np.add.at(out, (np.arange(runs), exit_pos[inst][rows]), totals[inst][rows])
     return sharpe(out)
