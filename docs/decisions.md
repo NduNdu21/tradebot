@@ -429,3 +429,17 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   exit rules and the fill-to-fill P&L exactly; the GBP conversion differed by 0.02% (16:00 vs 17:00 rate).
 - Per the protocol, the hold-out (2024-11-14 → 2026-11-13) is run once, with these rules frozen. It is the only
   hold-out, so Claude asked the owner before spending it.
+
+## 2026-11-25 — Strategy 6: hold-out result
+- Owner: "run the hold-out". Rules frozen, run once (`python -m src.meanrev.evaluate --holdout`).
+- **PASS:** Sharpe 1.82 (bar > 0) and max drawdown 4.1% (bar < 15%). 166 trades, 73% winners, mean £7.42, t 3.27,
+  +£1,232 (6.2% a year on the base). Profit came from all four indices: SPX500 £412, NAS100 £236, US30 £286,
+  US2000 £298.
+- Checks: hold-out H1 data clean (no candle errors). Execution spreads in points are close to development's
+  (e.g. SPX500 0.50 vs 0.40), smaller in bp because prices are higher. That, plus slippage fixed in points from
+  development spreads, explains costs of £0.26 a trade vs £0.72 in development. Costs (£43) are small next to
+  price P&L (£1,478), so this doesn't drive the verdict.
+- Caution: two years is short (a Sharpe of 1.82 over 2 years has a standard error of roughly 0.7), and 2025–26 was
+  a rising market, which suits a long-only dip-buyer. The development figure (0.54) is the better guide to what to
+  expect. Demo trading is the next test.
+- The hold-out has now been used. Later strategies need fresh out-of-sample data (e.g. live demo results).

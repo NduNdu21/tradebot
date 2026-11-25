@@ -824,3 +824,22 @@ Reported, not judged:
 - Without the uptrend filter: Sharpe 0.62 (1802 trades).
 - Per instrument (GBP): SPX500_USD 1,320, NAS100_USD 1,958, US30_USD 805, US2000_USD 379
 - Per year (GBP): 2006 276, 2007 -125, 2008 -136, 2009 646, 2010 185, 2011 -235, 2012 141, 2013 1,280, 2014 479, 2015 16, 2016 286, 2017 1,355, 2018 -970, 2019 235, 2020 -447, 2021 794, 2022 -178, 2023 126, 2024 733
+
+## Mean reversion, holdout (2024-11-14 → 2026-11-13)
+
+**Verdict: PASS** (pre-registered bar, `docs/strategy-mean-reversion.md` §5).
+
+| Check | Result | Pass |
+|---|---|---|
+| sharpe > 0 | Sharpe 1.82 | ✓ |
+| max drawdown < 15% | 4.1% | ✓ |
+
+Annual return 6.20% on a GBP 10,000 base (no compounding), max drawdown 4.1%, total £1,232.
+
+Reported, not judged:
+
+- 166 trades, mean £7.42, t-statistic 3.27, win rate 73%, mean hold 3.4 trading days, 6 time-stop exits.
+- P&L parts: price £1,478, spread + slippage £-43, financing £-203. Financing off: Sharpe 2.11.
+- Without the uptrend filter: Sharpe 2.17 (191 trades).
+- Per instrument (GBP): SPX500_USD 412, NAS100_USD 236, US30_USD 286, US2000_USD 298
+- Per year (GBP): 2024 7, 2025 405, 2026 820

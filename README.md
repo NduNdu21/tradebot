@@ -32,9 +32,9 @@ Every choice and its reason is logged in `docs/decisions.md`, and results in `do
 | 3 | ICT liquidity sweep → market structure shift → fair value gap, intraday | NAS100_USD, SPX500_USD | **Failed** its development test (2026-11-25): primary mean R −0.15 (n 231), rescue −0.10 (n 269); hold-out not run. Rules in `docs/strategy-ict.md`, results in `docs/backtests.md`. |
 | 4 | Multi-asset trend (indices, bonds, metals, FX), daily | 24 CFDs and FX pairs | **Failed** its development test (2026-11-25): Sharpe −0.10 (needed ≥ 0.4). Price moves alone made Sharpe 0.38; OANDA's financing markups (2.5% a year on index and bond CFDs) and spreads turned it negative. Hold-out not run. Rules in `docs/strategy-multi-asset-trend.md`. |
 | 5 | Turn of the month (long day −2 close → day +3 close), US index CFDs | SPX500, NAS100, US30, US2000 | **Failed** its development test (2026-11-25): Sharpe −0.09, below random timing (p95 0.52). In 2006–2024 the turn-of-month days earned less than an average day; the month's last day averaged −0.09%. Hold-out not run. Rules in `docs/strategy-turn-of-month.md`. |
-| 6 | Short-term mean reversion in an uptrend (buy a 5-day-low close above the 200-day average, sell above the 5-day average), US index CFDs | SPX500, NAS100, US30, US2000 | **Passed** its development test (2026-11-25): Sharpe 0.54, 1,298 trades, 71% winners, beat random entries (p95 0.48). **Hold-out not yet run.** Rules in `docs/strategy-mean-reversion.md`. |
+| 6 | Short-term mean reversion in an uptrend (buy a 5-day-low close above the 200-day average, sell above the 5-day average), US index CFDs | SPX500, NAS100, US30, US2000 | **Passed** its development test (2026-11-25): Sharpe 0.54, 1,298 trades, 71% winners, beat random entries (p95 0.48). **Passed the hold-out** (2024-11 → 2026-11): Sharpe 1.82, 166 trades, max drawdown 4.1%. Next: demo trading. Rules in `docs/strategy-mean-reversion.md`. |
 
-The hold-out period has not been used yet.
+The hold-out period (2024-11-14 → 2026-11-13) has now been used, once, by strategy 6. Any future strategy needs new out-of-sample data, such as live demo results.
 
 ## Layout
 
