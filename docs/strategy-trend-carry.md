@@ -1,6 +1,6 @@
 # Strategy 2: trend + carry
 
-**Status: rules fixed 2026-11-25, before any result was seen.** The owner handed every remaining decision to
+**Status: FAILED its development test (2026-11-25): Sharpe −0.04; hold-out not run.** Rules fixed 2026-11-25, before any result was seen. The owner handed every remaining decision to
 Claude ("make all trading decisions … determine entry and exit rules", 2026-11-25). Items marked *(Claude)* are
 those decisions. Each one was chosen from published trend and carry research and from this project's earlier
 results, not from looking at this data. Nothing below may be changed after the first run; a fail is final.

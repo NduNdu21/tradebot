@@ -302,3 +302,17 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   development bars with no 08:00 candle. Median spread at the 08:00 New York open is 1.3–2.8 pips (p90 1.6–6.0).
   About 80 daily bars per pair were dated Saturday, built from quotes between Friday 17:00 and Sunday 17:00 New
   York (2005, 2011). Ruling: those candles are dropped, since the FX market is closed then (added to §2).
+
+## 2026-11-25 — Trend + carry: development result
+- **FAIL.** Sharpe −0.04 (bar ≥ 0.4); sub-periods +£707 / −£165 / −£1,936 (needed 2 of 3 positive); −0.13 without
+  the best pair, GBP_JPY (needed > 0.2). It did beat the random-sign control (p95 −0.07, median −0.47), but only
+  because random directions pay the 1% financing markup on the wrong side, so that check is a low bar here.
+- Neither sleeve works on its own: trend 0.05, carry −0.16 (2008 unwind, then little carry left in G10). With
+  financing off it is −0.11. Spread and slippage cost £2,503, so with zero costs the strategy would still be
+  roughly break-even; this time costs aren't the main problem, the signal is.
+- Checks: rebuilding from H1 cut at 6 random times changed none of 188,676 pair-bar positions or targets (no
+  lookahead); portfolio P&L reconciles with the saved daily file.
+- Sizing note: 0.25% per ATR per sleeve gave 17% annual volatility and a 72% drawdown. That doesn't change the
+  Sharpe verdict, but the level was too aggressive and would need halving or more in any future version.
+- Per the rules there's no re-tuning. In particular, "trend on JPY crosses only" (the best pairs here) is not a
+  candidate: it was picked by looking at these results. The hold-out (2024-11-14 → 2026-11-13) is still unused.

@@ -722,3 +722,30 @@ Max drawdown at 0.5% risk per trade: 30.0 percentage points. Stop-first trades: 
 | Shift by wick, M5 | 269 | -0.096 | 0.118 |
 | Shift by close, 1-minute chart | 977 | -0.689 | 0.056 |
 | Shift by close, 2-minute chart | 576 | -0.484 | 0.075 |
+
+## Trend + carry, development (2006-01-02 → 2024-11-13)
+
+**Verdict: FAIL** (pre-registered bar, `docs/strategy-trend-carry.md` §8).
+
+| Check | Result | Pass |
+|---|---|---|
+| sharpe >= 0.4 | Sharpe -0.04 | ✗ |
+| positive in >= 2 of 3 sub-periods | 2006–2011 £707, 2012–2017 £-165, 2018–2024 £-1,936 | ✗ |
+| beats control 95th percentile | -0.04 vs control p95 -0.07 (median -0.47) | ✓ |
+| sharpe > 0.2 without best pair | -0.13 without GBP_JPY | ✗ |
+
+Annual return -0.74% on a GBP 10,000 base (no compounding), max drawdown 72.1%, total £-1,394 over 4899 daily bars.
+
+Reported, not judged:
+
+| Version | Sharpe | Annual % | Max DD % |
+|---|---|---|---|
+| trend only | 0.05 | 0.72 | 61.3 |
+| carry only | -0.16 | -2.38 | 108.7 |
+| financing off | -0.11 | -1.88 | 77.8 |
+
+P&L parts: price £-1,047, spread + slippage £-2,503, financing £2,156. Peak margin 35% of the base. 2079 holding episodes, mean 25 daily bars.
+
+Per pair (GBP): GBP_JPY 2,544, USD_JPY 1,578, EUR_JPY 1,041, AUD_JPY 298, EUR_CHF 185, EUR_USD 54, GBP_USD -65, AUD_USD -69, NZD_USD -831, EUR_GBP -898, USD_CAD -1,576, USD_CHF -3,655
+
+Per year (GBP): 2006 2,256, 2007 -186, 2008 -1,582, 2009 427, 2010 891, 2011 -1,099, 2012 -243, 2013 790, 2014 729, 2015 -696, 2016 -312, 2017 -434, 2018 -1,265, 2019 -143, 2020 -241, 2021 -578, 2022 258, 2023 -220, 2024 253

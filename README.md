@@ -28,7 +28,7 @@ Every choice and its reason is logged in `docs/decisions.md`, and results in `do
 | # | Strategy | Markets | Status |
 |---|---|---|---|
 | 1 | Fibonacci swing-to-swing retracement, H1 | EUR_USD, GBP_JPY | **Failed** its development test (2026-11-16): −0.16 to −0.24R per setup, no better than random entries. Rules frozen in `docs/strategy.md`. |
-| 2 | Trend following + carry, daily | 10–15 FX pairs | **Shelved** as a draft (`docs/strategy-trend-carry.md`); no code. |
+| 2 | Trend following + carry, daily | 12 FX pairs | **Failed** its development test (2026-11-25): Sharpe −0.04 over 2006–2024 (needed ≥ 0.4); trend sleeve alone 0.05, carry alone −0.16; hold-out not run. Rules in `docs/strategy-trend-carry.md`. |
 | 3 | ICT liquidity sweep → market structure shift → fair value gap, intraday | NAS100_USD, SPX500_USD | **Failed** its development test (2026-11-25): primary mean R −0.15 (n 231), rescue −0.10 (n 269); hold-out not run. Rules in `docs/strategy-ict.md`, results in `docs/backtests.md`. |
 
 The hold-out period has not been used yet.
@@ -41,6 +41,8 @@ The hold-out period has not been used yet.
 | `src/backtest.py` | The fill engine: limits, stops, targets, gaps, slippage, same-candle rules, sizing, exposure caps. |
 | `src/financing.py` | Overnight financing from historical policy rates. |
 | `src/swings.py`, `src/setups.py` | Strategy 1's swing detection and Fibonacci setups. |
+| `src/trend/` | Strategy 2: daily bars from H1, FRED rates, signals, simulation, evaluation (`python -m src.trend.evaluate`). |
+| `src/ict/` | Strategy 3: ICT sessions, swings, setups, M1 fills, evaluation. |
 | `src/experiments.py`, `src/diagnostics.py` | Strategy 1's walk-forward, controls and post-mortem. |
 | `docs/` | Strategy rules, decisions log, backtest results, ICT source material. |
 
