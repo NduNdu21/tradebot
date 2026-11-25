@@ -1,6 +1,6 @@
 # Strategy 4: multi-asset trend
 
-**Status: rules fixed 2026-11-25, before any result was seen.** The owner asked for "number 3" of the three ideas
+**Status: FAILED its development test (2026-11-25): Sharpe −0.10; hold-out not run.** Rules fixed 2026-11-25, before any result was seen. The owner asked for "number 3" of the three ideas
 proposed after strategy 2 failed ("trend following across asset classes instead of FX alone"). As for strategy 2,
 Claude made every rule decision *(Claude)*, from published research and from data checks that look at
 availability, spreads and price construction, never at strategy results. Nothing may change after the first run;

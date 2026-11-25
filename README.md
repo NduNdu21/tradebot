@@ -30,6 +30,7 @@ Every choice and its reason is logged in `docs/decisions.md`, and results in `do
 | 1 | Fibonacci swing-to-swing retracement, H1 | EUR_USD, GBP_JPY | **Failed** its development test (2026-11-16): −0.16 to −0.24R per setup, no better than random entries. Rules frozen in `docs/strategy.md`. |
 | 2 | Trend following + carry, daily | 12 FX pairs | **Failed** its development test (2026-11-25): Sharpe −0.04 over 2006–2024 (needed ≥ 0.4); trend sleeve alone 0.05, carry alone −0.16; hold-out not run. Rules in `docs/strategy-trend-carry.md`. |
 | 3 | ICT liquidity sweep → market structure shift → fair value gap, intraday | NAS100_USD, SPX500_USD | **Failed** its development test (2026-11-25): primary mean R −0.15 (n 231), rescue −0.10 (n 269); hold-out not run. Rules in `docs/strategy-ict.md`, results in `docs/backtests.md`. |
+| 4 | Multi-asset trend (indices, bonds, metals, FX), daily | 24 CFDs and FX pairs | **Failed** its development test (2026-11-25): Sharpe −0.10 (needed ≥ 0.4). Price moves alone made Sharpe 0.38; OANDA's financing markups (2.5% a year on index and bond CFDs) and spreads turned it negative. Hold-out not run. Rules in `docs/strategy-multi-asset-trend.md`. |
 
 The hold-out period has not been used yet.
 
@@ -42,6 +43,7 @@ The hold-out period has not been used yet.
 | `src/financing.py` | Overnight financing from historical policy rates. |
 | `src/swings.py`, `src/setups.py` | Strategy 1's swing detection and Fibonacci setups. |
 | `src/trend/` | Strategy 2: daily bars from H1, FRED rates, signals, simulation, evaluation (`python -m src.trend.evaluate`). |
+| `src/multi/` | Strategy 4: multi-asset universe, CFD financing model, evaluation (`python -m src.multi.evaluate`). |
 | `src/ict/` | Strategy 3: ICT sessions, swings, setups, M1 fills, evaluation. |
 | `src/experiments.py`, `src/diagnostics.py` | Strategy 1's walk-forward, controls and post-mortem. |
 | `docs/` | Strategy rules, decisions log, backtest results, ICT source material. |

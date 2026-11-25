@@ -749,3 +749,35 @@ P&L parts: price £-1,047, spread + slippage £-2,503, financing £2,156. Peak m
 Per pair (GBP): GBP_JPY 2,544, USD_JPY 1,578, EUR_JPY 1,041, AUD_JPY 298, EUR_CHF 185, EUR_USD 54, GBP_USD -65, AUD_USD -69, NZD_USD -831, EUR_GBP -898, USD_CAD -1,576, USD_CHF -3,655
 
 Per year (GBP): 2006 2,256, 2007 -186, 2008 -1,582, 2009 427, 2010 891, 2011 -1,099, 2012 -243, 2013 790, 2014 729, 2015 -696, 2016 -312, 2017 -434, 2018 -1,265, 2019 -143, 2020 -241, 2021 -578, 2022 258, 2023 -220, 2024 253
+
+## Multi-asset trend, development (2006-01-02 → 2024-11-13)
+
+**Verdict: FAIL** (pre-registered bar, `docs/strategy-multi-asset-trend.md` §8).
+
+| Check | Result | Pass |
+|---|---|---|
+| sharpe >= 0.4 | Sharpe -0.10 | ✗ |
+| positive in >= 2 of 3 sub-periods | 2006–2011 £561, 2012–2017 £-103, 2018–2024 £-1,206 | ✗ |
+| beats control 95th percentile | -0.10 vs control p95 -0.42 (median -0.83) | ✓ |
+| sharpe > 0.2 without best pair | -0.24 without XAU_USD | ✗ |
+
+Annual return -0.40% on a GBP 10,000 base (no compounding), max drawdown 19.3%, total £-747 over 4899 daily bars.
+
+Reported, not judged:
+
+| Version | Sharpe | Annual % | Max DD % |
+|---|---|---|---|
+| equity only | -0.24 | -0.41 | 11.7 |
+| bond only | -0.23 | -0.39 | 11.0 |
+| metal only | 0.19 | 0.37 | 7.9 |
+| fx only | 0.03 | 0.04 | 5.3 |
+| unrounded units | -0.07 | -0.29 | 19.2 |
+| no dividends | -0.15 | -0.61 | 21.5 |
+| bond carry 0 | -0.10 | -0.42 | 18.8 |
+| financing off | 0.24 | 0.95 | 10.6 |
+
+P&L parts: price £2,913, spread + slippage £-1,125, financing £-2,535. Peak margin 17% of the base. 4827 holding episodes, mean 22 daily bars.
+
+Per instrument (GBP): XAU_USD 817, EUR_CHF 253, SPX500_USD 195, GBP_JPY 161, USD_JPY 131, EUR_JPY 43, EUR_USD 35, GBP_USD 15, DE30_EUR -9, AUD_USD -10, AUD_JPY -37, UK10YB_GBP -48, USB30Y_USD -62, EUR_GBP -67, NZD_USD -99, JP225_USD -100, USD_CAD -111, XAG_USD -120, EU50_EUR -195, USD_CHF -241, UK100_GBP -263, DE10YB_EUR -309, USB10Y_USD -318, AU200_AUD -407
+
+Per year (GBP): 2006 59, 2007 -150, 2008 545, 2009 -164, 2010 153, 2011 117, 2012 -448, 2013 723, 2014 -138, 2015 31, 2016 -43, 2017 -227, 2018 -389, 2019 161, 2020 73, 2021 -266, 2022 138, 2023 -633, 2024 -291

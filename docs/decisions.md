@@ -330,3 +330,18 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
 - Financing markups measured from OANDA's 2026-11-25 rates: indices and bonds 2.5% per side, gold 1.1%, silver
   1.4%. These are large next to futures costs and are charged in full.
 - Code: `src/trend/sim.daily_pnl` gained an optional `slip` argument; strategy 2's results are unchanged by it.
+
+## 2026-11-25 — Strategy 4: multi-asset trend, development result
+- **FAIL.** Sharpe −0.10 (bar ≥ 0.4); sub-periods +£561 / −£103 / −£1,206; −0.24 without gold, the best
+  instrument. It beat the random-sign control (p95 −0.42), but random directions pay the financing markup on every
+  position, so that check is again a low bar.
+- Where the money went: price moves +£2,913, spread and slippage −£1,125, financing −£2,535 (about £134 a year).
+  With no costs at all the Sharpe would be 0.38, still just under the bar. With financing off it is 0.24.
+- By class: metals 0.19, FX 0.03, equities −0.24, bonds −0.23. Bonds trend in price but pay OANDA's 2.5% markup on
+  the full notional every day, which outweighs it at bond volatility.
+- Sensitivities don't change the verdict: unrounded units −0.07, no dividends −0.15, bond carry 0 −0.10.
+- Checks: rebuilding from H1 cut at 5 random times changed none of 231,178 instrument-bar positions or targets.
+- Lesson for any future idea: on OANDA CFDs, holding positions for weeks costs about 2.5% a year of notional on
+  indices and bonds (1% on FX). A strategy needs either short holds or a gross edge well above that.
+- No re-tuning (e.g. "metals and FX only" was picked from these results and isn't a candidate). The hold-out is
+  still unused.
