@@ -345,3 +345,14 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   indices and bonds (1% on FX). A strategy needs either short holds or a gross edge well above that.
 - No re-tuning (e.g. "metals and FX only" was picked from these results and isn't a candidate). The hold-out is
   still unused.
+
+## 2026-11-25 — Strategy 5: turn of the month, rules fixed
+- Owner: "merge and push, then build turn of the month". Claude made all rule decisions, fixed before any result
+  in `docs/strategy-turn-of-month.md`: SPX500/NAS100/US30/US2000 CFDs, long from the close of day −2 to the close
+  of day +3 (McConnell–Xu's window), the close = the 15:00 New York H1 candle's close, 0.25% per ATR sizing, no
+  stop, random-timing control.
+- Data checks before the rules: H1 from 2005 for all four. On 4,749 development NYSE days each misses the 15:00
+  candle on only 43–45 days, all early closes (July 3, day after Thanksgiving, Christmas Eve). The median spread at
+  that close is 0.4–1.5 bp. OANDA's CFD financing schedule from the API is Mon–Thu 1 day, Fri 3 days.
+- `src/tom/nyse.py` builds NYSE trading days from the holiday rules plus 5 one-off closures. For 2016-10 → 2026-11
+  it matches the hand-checked `src/ict/calendar.py` list exactly.
