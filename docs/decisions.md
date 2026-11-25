@@ -407,3 +407,12 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
 - Scale: a planted drift of 0.05% per bar (about 12.6% a year in the trend's direction, a strong trend that lasts
   about 6 months at a time) gives Sharpe ≈ 0.45, just past the 0.4 bar. Real FX and multi-asset trend effects are
   smaller than that, consistent with strategies 2 and 4 failing.
+
+## 2026-11-25 — Strategy 6: mean reversion, rules fixed
+- Owner: "build the mean reversion strategy". Claude made all rule decisions, fixed before any result in
+  `docs/strategy-mean-reversion.md`, keeping the version the owner was shown: close at a 5-day low above the
+  200-day average → buy; close above the 5-day average → sell. Additions: a 10-trading-day time stop, execution at
+  the next H1 open after the signal candle (the signal needs the close), and a random-entry control limited to
+  days when the uptrend filter holds.
+- Data check before the rules: the 16:00 New York candle is missing on 39–46 of 4,749 development NYSE days (early
+  closes), and its opening spread is 0.5–1.6 bp median.
