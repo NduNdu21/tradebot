@@ -22,8 +22,8 @@ each order out and returns a trade in R. A runner applies the §10 protocol and 
   plan reads it (`include_holdout=True` is never passed). The hold-out run is a later, owner-approved step.
 - All session times are America/New_York with daylight saving: sweeps and entries 08:30–11:00, flat at 12:00.
 - Signals on mid prices, fills on bid/ask. Shorts enter at the bid, exit at the ask; longs the opposite.
-- Slippage on stops and the 12:00 exit: NAS100_USD 1.0 point, SPX500_USD 0.25 point (placeholders, re-checked in
-  Task 1).
+- Slippage on stops and the 12:00 exit: NAS100_USD 1.0 point, SPX500_USD 0.5 point (owner's ruling after the
+  Task 1 spread check).
 - Results in R = P&L ÷ |entry − stop| in price.
 - Explain trade logic in comments; one test per strategy rule (CLAUDE.md). Log decisions in `docs/decisions.md`.
 - Every *(proposed)* rule in the spec is implemented exactly as written; any doubt goes back to the owner.
@@ -219,7 +219,7 @@ entry, stop and target exactly per §6–§7; bias check per §3 against the ent
 
 **Interfaces:**
 - Consumes: `Order` (Task 4), `session_times` (Task 2).
-- Produces: `SLIPPAGE = {"NAS100_USD": 1.0, "SPX500_USD": 0.25}`.
+- Produces: `SLIPPAGE = {"NAS100_USD": 1.0, "SPX500_USD": 0.5}`.
 - Produces: `@dataclass Result: order, status ("filled", "cancelled_time", "cancelled_stop", "cancelled_target"),
   fill_time, fill_price, exit_time, exit_price, exit_reason ("stop", "target", "time"), r: Optional[float],
   stop_first: bool`.

@@ -121,8 +121,8 @@ mirror image.
 ## 8. Fills and costs *(proposed, same approach as the Fibonacci build)*
 - Real bid/ask from M1 on every fill: shorts enter at the bid and exit at the ask; longs the opposite.
 - Limit entries and targets: no slippage; if price gaps past a limit it fills at the bar open when that's better.
-- Stops and the 12:00 exit: spread plus slippage, NAS100_USD 1.0 point, SPX500_USD 0.25 point *(placeholders,
-  to be checked against current spreads)*. A gap through a stop fills at the open when that's worse.
+- Stops and the 12:00 exit: spread plus slippage, NAS100_USD 1.0 point, SPX500_USD 0.5 point (owner's ruling 2026-11-25,
+  after the measured spread check in `docs/decisions.md`). A gap through a stop fills at the open when that's worse.
 - No financing: every trade is closed by 12:00, before the 17:00 rollover.
 - Results are in R: P&L ÷ planned risk (entry to stop, in price).
 

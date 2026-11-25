@@ -240,3 +240,7 @@
 
 - Against the slippage placeholders: NAS100_USD median 0.6 is under 1.0. **SPX500_USD median 0.4 is over its
   0.25 placeholder.** Placeholders left unchanged; owner to decide on §8.
+- NAS100_USD's 90th-percentile spread (1.7–2.3 points in most years) is above its 1.0 slippage figure; that is
+  the tail, and the median (0.6) is well below it.
+- Owner's ruling: SPX500_USD slippage raised from 0.25 to **0.5 point** (its 90th-percentile spread). NAS100_USD
+  stays at 1.0. Decided before any strategy results were seen.
