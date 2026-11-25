@@ -1,6 +1,6 @@
 # Strategy 6: short-term mean reversion in an uptrend (US index CFDs)
 
-**Status: rules fixed 2026-11-25, before any result was seen.** The owner asked to "build the mean reversion
+**Status: PASSED its development test (2026-11-25): Sharpe 0.54. Hold-out not yet run.** Rules fixed 2026-11-25, before any result was seen. The owner asked to "build the mean reversion
 strategy", the last of the ideas proposed after strategy 2 failed. As for strategies 2, 4 and 5, Claude made every
 rule decision *(Claude)*, keeping to the version the owner was shown ("buy when the index closes at a 5-day low
 while it is above its 200-day average, and sell when it closes back above its 5-day average"). Data checks looked

@@ -416,3 +416,16 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   days when the uptrend filter holds.
 - Data check before the rules: the 16:00 New York candle is missing on 39–46 of 4,749 development NYSE days (early
   closes), and its opening spread is 0.5–1.6 bp median.
+
+## 2026-11-25 — Strategy 6: mean reversion, development result
+- **PASS**, the first of six strategies to pass development. Sharpe 0.54 (bar ≥ 0.4); sub-periods +£612 / +£3,557 /
+  +£293; it beat the random uptrend-day entries (p95 0.48, median 0.15); 0.38 without NAS100 (bar > 0.2).
+- 1,298 trades, mean £3.44, t 3.40, 71% winners, mean hold 3.4 trading days, 38 time-stop exits. Price +£6,314,
+  spread and slippage −£938, financing −£914. Annual 2.37% on the base, max drawdown 13.6%.
+- Margins are thin: the control check passed 0.54 vs 0.48, and 2018–2024 made only £293 (2018 −£970, 2020 −£447).
+  Without the uptrend filter it would have been 0.62 (reported only; the filtered version is the one judged).
+- Checks before using the hold-out: rebuilding from H1 cut at 6 random times left all 6,449 completed trades'
+  dates unchanged (no lookahead). Three random trades recomputed by hand from raw H1 candles matched the entry and
+  exit rules and the fill-to-fill P&L exactly; the GBP conversion differed by 0.02% (16:00 vs 17:00 rate).
+- Per the protocol, the hold-out (2024-11-14 → 2026-11-13) is run once, with these rules frozen. It is the only
+  hold-out, so Claude asked the owner before spending it.
