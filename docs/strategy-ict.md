@@ -1,8 +1,8 @@
-# Strategy: ICT sweep → market structure shift → FVG (draft)
+# Strategy: ICT sweep → market structure shift → FVG
 
 Instruments: NAS100_USD, SPX500_USD (OANDA practice CFDs). Execution chart M5, fills simulated on M1.
-New York morning only. Status: **draft, 2026-11-25.** Items marked *(proposed)* were filled in by Claude to make
-a rule testable and need the owner's sign-off. Everything else is either the owner's ruling (dated) or confirmed
+New York morning only. Status: **approved by the owner, 2026-11-25.** Items marked *(proposed)* were filled in by Claude to make
+a rule testable and were approved as written; the cost placeholders (§8) are re-checked after the download. Everything else is either the owner's ruling (dated) or confirmed
 from the 2022 ICT Mentorship captions (see `docs/ict-extracts/2022-verification.md`; "Ep6 36:00" = episode 6 at
 36:00).
 
