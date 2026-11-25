@@ -29,7 +29,7 @@ Every choice and its reason is logged in `docs/decisions.md`, and results in `do
 |---|---|---|---|
 | 1 | Fibonacci swing-to-swing retracement, H1 | EUR_USD, GBP_JPY | **Failed** its development test (2026-11-16): −0.16 to −0.24R per setup, no better than random entries. Rules frozen in `docs/strategy.md`. |
 | 2 | Trend following + carry, daily | 10–15 FX pairs | **Shelved** as a draft (`docs/strategy-trend-carry.md`); no code. |
-| 3 | ICT liquidity sweep → market structure shift → fair value gap, intraday | NAS100_USD, SPX500_USD | **Failed** its development test (2026-11-25): primary mean R −0.16 (n 231), rescue −0.11 (n 269); hold-out not run. Rules in `docs/strategy-ict.md`, results in `docs/backtests.md`. |
+| 3 | ICT liquidity sweep → market structure shift → fair value gap, intraday | NAS100_USD, SPX500_USD | **Failed** its development test (2026-11-25): primary mean R −0.15 (n 231), rescue −0.10 (n 269); hold-out not run. Rules in `docs/strategy-ict.md`, results in `docs/backtests.md`. |
 
 The hold-out period has not been used yet.
 

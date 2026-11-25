@@ -272,13 +272,14 @@ Each settles something the spec left open. All were made before any R results we
 **Verdict: fail.** Both versions failed the pre-registered development bar (`docs/strategy-ict.md` §10), so
 nothing goes to the hold-out, which has not been run. Details are in `docs/backtests.md`.
 - Truncation check (no lookahead) passed for both instruments and both shift rules.
-- Primary (shift by close, M5, pooled): n 231, mean R −0.159, SE 0.126, mean R − 1 SE −0.285. NAS100 −0.205,
-  SPX500 −0.116. Random-control 95th percentile −0.333 (beaten). Failed: mean R ≥ 0.1, mean R − 1 SE > 0, positive on
+- Primary (shift by close, M5, pooled): n 231, mean R −0.154, SE 0.126, mean R − 1 SE −0.280. NAS100 −0.204,
+  SPX500 −0.107. Random-control 95th percentile −0.333 (beaten). Failed: mean R ≥ 0.1, mean R − 1 SE > 0, positive on
   each instrument.
-- Rescue (shift by wick, M5, mean R − 2 SE > 0), evaluated because the primary failed: n 269, mean R −0.105,
-  SE 0.118, mean R − 2 SE −0.342. NAS100 −0.046, SPX500 −0.164. Control 95th percentile −0.366 (beaten). Failed
+- Rescue (shift by wick, M5, mean R − 2 SE > 0), evaluated because the primary failed: n 269, mean R −0.096,
+  SE 0.118, mean R − 2 SE −0.332. NAS100 −0.044, SPX500 −0.147. Control 95th percentile −0.366 (beaten). Failed
   the same three criteria.
 - The random control averages about −0.49R, so beating its 95th percentile says little on its own.
-- Reported, not judged: close rule on 1-minute chart n 977, mean R −0.711; on 2-minute n 576, −0.491. Longs
-  +0.205 (n 72) and shorts −0.324 (n 159) under the primary. Max drawdown at 0.5% risk: 29.9 points.
+- Reported, not judged: close rule on 1-minute chart n 977, mean R −0.689; on 2-minute n 576, −0.484. Longs
+  +0.208 (n 72) and shorts −0.319 (n 159) under the primary. Max drawdown at 0.5% risk: 29.3 points.
 - Under §10 item 4 the strategy fails; no re-tuning on the same data.
+- Re-run after the final review fixed R to use the actual fill price on gapped limit fills (it had used the limit price; 15 of 231 primary trades affected). A bug fix, not re-tuning; the verdict was unchanged: fail.
