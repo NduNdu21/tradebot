@@ -248,6 +248,35 @@ class TestFVG(unittest.TestCase):
         self.assertEqual(o.notes["fvg_candle1_time"], ny("08:45"))
         self.assertEqual(o.placed_time, ny("09:05"))
 
+    def test_nearest_fvg_not_premium_uses_farther_premium_one(self):
+        # §6 (controller ruling): "qualifies" = in the window AND in premium. Gaps 08:45 -> 08:55
+        # (18,100 -> 18,070) and 08:50 -> 09:00 (18,095 -> 18,090); shift at 09:00; range
+        # 18,112 -> 18,030, 50% 18,071. The nearer gap's edge 18,070 is in discount, so the
+        # farther one (edge 18,090, candle 1 high 18,108) is used.
+        table = rows({"08:45": (18112, 18100, 18105), "08:50": (18108, 18095, 18098),
+                      "08:55": (18070, 18040, 18065), "09:00": (18090, 18030, 18050)})
+        orders, skips = run(table)
+        self.assertEqual(skips, Counter())
+        self.assertEqual(len(orders), 1)
+        o = orders[0]
+        self.assertEqual((o.entry, o.stop, o.target), (18090, 18108, 17990))
+        self.assertEqual(o.notes["fvg_candle1_time"], ny("08:50"))
+        self.assertEqual(o.placed_time, ny("09:05"))
+
+    def test_fvg_after_shift_used_when_earlier_one_not_premium(self):
+        # §6: shift at 08:55. Gap 08:45 -> 08:55 (edge 18,078) is below the 50% of
+        # 18,112 -> 18,050 (18,081). The gap 08:50 -> 09:00 (18,089 -> 18,085) ends on the candle
+        # after the shift; range through 09:00 is still 18,112 -> 18,050, and 18,085 is in premium.
+        # Placed at 09:05. Target: the 08:55 swing low 18,050, confirmed at 09:05.
+        table = rows({"08:50": (18091, 18089, 18090), "08:55": (18078, 18050, 18052),
+                      "09:00": (18085, 18060, 18070)})
+        orders, skips = run(table)
+        self.assertEqual(skips, Counter())
+        self.assertEqual(len(orders), 1)
+        o = orders[0]
+        self.assertEqual((o.entry, o.stop, o.target), (18085, 18091, 18050))
+        self.assertEqual(o.placed_time, ny("09:05"))
+
     def test_too_late(self):
         # §6: sweep at 10:45, shift at 10:55, FVG 10:50 -> 11:00 (18,075 -> 18,070): placed at
         # 11:05, after the 11:00 limit.

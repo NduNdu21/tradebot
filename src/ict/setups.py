@@ -157,32 +157,47 @@ def _scan_level(frame, swings, level, side, sign, daily, instrument, day, shift_
     ext_i = None      # index of the sweep-extreme candle (§4)
     stl = None        # this cycle's short-term low (§5)
     shift_i = None    # index of this cycle's shift candle; None until it shifts
-    pending = False   # shifted with no FVG yet: candle 3 may still be the next candle (§6)
+    pending = False   # shifted, nothing placed yet: candle 3 may still be the next candle (§6)
+    saw_fvg = False   # a window FVG was found at the shift but none was in premium
 
-    def place(c1: int, c3: int, place_i: int) -> None:
-        """Apply the placement checks (§3, §6, §7) to the FVG c1..c3 and place or skip."""
+    def place(fvgs: List[Tuple[int, int]], place_i: int, final: bool) -> bool:
+        """Apply the placement checks to FVGs completed by candle `place_i` (nearest first).
+
+        Returns True if the cycle is decided (order placed or skip counted). With final=False and
+        no FVG in premium, nothing is counted: an FVG ending on the next candle may still qualify.
+
+        Skip reasons are checked in this order (only which reason is counted depends on it):
+        too_late -> fvg_not_premium -> bias -> no_target. (no_fvg is decided by the caller.)
+        """
         placed = times[place_i] + bar
         # §6: no order is placed at or after 11:00.
         if placed >= end:
             skips["too_late"] += 1
-            return
+            return True
         # §6 dealing range: sweep extreme -> lowest low from the extreme candle to the placement
-        # candle, fixed now (Ep4 01:20, Ep6). The FVG's near edge must be above its 50% (premium).
+        # candle, fixed now (Ep4 01:20, Ep6).
         extreme = hi[ext_i]
         dealing_mid = (extreme + lo[ext_i:place_i + 1].min()) / 2
-        near = hi[c3]  # §6: entry at the near edge, candle 3's high (Ep6 35:40-36:20)
-        if not near > dealing_mid:
-            skips["fvg_not_premium"] += 1
-            return
+        # §6 (controller ruling): an FVG "qualifies" if it is in the window AND its near edge
+        # (candle 3's high, the entry, Ep6 35:40-36:20) is above the 50% (premium). The nearest
+        # qualifying FVG to the sweep extreme is used; bias and target apply to it alone.
+        premium = [f for f in fvgs if hi[f[1]] > dealing_mid]
+        if not premium:
+            if final:
+                skips["fvg_not_premium"] += 1
+            return final
+        c1, c3 = premium[0]
+        near = hi[c3]
         # §3: shorts only above the daily 50%, longs only below; exactly at 50% allows neither.
+        # With no confirmed daily swing high and low yet, the bias can't be read: counted as bias.
         daily_mid = daily_bias_mid(daily, placed)
         if daily_mid is None or not near > sign * daily_mid:
             skips["bias"] += 1
-            return
+            return True
         target = _target(swing_lows, lo, position, dealing_mid, placed, place_i)
         if target is None:
             skips["no_target"] += 1
-            return
+            return True
         orders.append(Order(
             instrument=instrument, day=day, side=side, placed_time=placed,
             entry=sign * near,
@@ -199,22 +214,26 @@ def _scan_level(frame, swings, level, side, sign, daily, instrument, day, shift_
             },
             cycle=cycle,
         ))
+        return True
 
     for i in range(times.searchsorted(start), len(times)):
         t = times[i]
         if t > end:
             break
 
-        # §6: a shift candle without an FVG so far can still get one whose candle 3 is this
-        # candle (the candle after the shift). Decided here, before this candle can re-arm. A
-        # candle above the extreme can't be such a candle 3 anyway (its high is above candle 1's low).
+        # §6: a shift with nothing placed yet can still use an FVG whose candle 3 is this candle
+        # (the candle after the shift), judged against the range through this candle. Decided
+        # here, before this candle can re-arm. A candle above the extreme can't be such a candle 3
+        # anyway (its high is above candle 1's low).
         if pending:
             pending = False
-            fvg = _nearest_fvg(hi, lo, ext_i, i, i)
-            if fvg is None:
-                skips["no_fvg"] += 1  # §6: no FVG, no trade (Ep6 22:00, Ep4 06:40)
+            fvgs = _window_fvgs(hi, lo, ext_i, i, i)
+            if fvgs:
+                place(fvgs, i, final=True)
+            elif saw_fvg:
+                skips["fvg_not_premium"] += 1
             else:
-                place(fvg[0], fvg[1], i)
+                skips["no_fvg"] += 1  # §6: no FVG, no trade (Ep6 22:00, Ep4 06:40)
 
         # Sweeps, re-arms and shifts happen only on candles opening before 11:00 (§4, §5).
         if t >= end:
@@ -247,13 +266,12 @@ def _scan_level(frame, swings, level, side, sign, daily, instrument, day, shift_
             if price < stl.price:
                 shift_i = i
                 # §6: candle 1 at or after the extreme candle, candle 3 no later than the candle
-                # after the shift. If one is complete now it is nearer the extreme than any FVG
-                # ending on the next candle, so it is chosen without waiting.
-                fvg = _nearest_fvg(hi, lo, ext_i, ext_i + 2, i)
-                if fvg is None:
+                # after the shift. FVGs complete now are placed at this close; any in premium is
+                # nearer the extreme than one ending on the next candle, so it wins without waiting.
+                fvgs = _window_fvgs(hi, lo, ext_i, ext_i + 2, i)
+                saw_fvg = bool(fvgs)
+                if not (fvgs and place(fvgs, i, final=False)):
                     pending = True
-                else:
-                    place(fvg[0], fvg[1], i)
 
     # §5: cancel if no shift by 11:00. Counted once per swept level whose last cycle never shifted.
     if swept and shift_i is None:
@@ -261,18 +279,14 @@ def _scan_level(frame, swings, level, side, sign, daily, instrument, day, shift_
     return orders, skips
 
 
-def _nearest_fvg(hi, lo, ext_i: int, first_c3: int, last_c3: int) -> Optional[Tuple[int, int]]:
-    """The bearish FVG nearest the sweep extreme with candle 3 in [first_c3, last_c3] (§6).
+def _window_fvgs(hi, lo, ext_i: int, first_c3: int, last_c3: int) -> List[Tuple[int, int]]:
+    """Bearish FVGs with candle 3 in [first_c3, last_c3], nearest the sweep extreme first (§6).
 
     Bearish FVG: candle 1's low above candle 3's high, wicks included (Ep6 12:00-12:20). Candle 1
     must be at or after the extreme candle (displacement leg, Ep6 20:00-24:20). Nearest the
-    extreme = earliest candle 1, so candle 3 is tried from the earliest. Returns (c1, c3) or None.
+    extreme = earliest candle 1. Returns a list of (c1, c3).
     """
-    for c3 in range(max(first_c3, ext_i + 2), last_c3 + 1):
-        c1 = c3 - 2
-        if lo[c1] > hi[c3]:
-            return c1, c3
-    return None
+    return [(c3 - 2, c3) for c3 in range(max(first_c3, ext_i + 2), last_c3 + 1) if lo[c3 - 2] > hi[c3]]
 
 
 def _target(swing_lows, lo, position, dealing_mid, placed, place_i) -> Optional[Swing]:
