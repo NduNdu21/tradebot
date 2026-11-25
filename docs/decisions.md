@@ -244,3 +244,26 @@
   the tail, and the median (0.6) is well below it.
 - Owner's ruling: SPX500_USD slippage raised from 0.25 to **0.5 point** (its 90th-percentile spread). NAS100_USD
   stays at 1.0. Decided before any strategy results were seen.
+
+## 2026-11-25 — ICT: build-time rulings (Claude, while building; none seen results)
+Each settles something the spec left open. All were made before any R results were looked at.
+- A sweep candle that itself closes beyond the short-term low counts as the shift; no FVG can fit, so the cycle
+  ends `no_fvg` and waits for a re-arm (spec §5–§6 read literally).
+- An FVG "qualifies" if it is inside the displacement window and its near edge is in premium. Among qualifying FVGs
+  the one whose near edge is closest in price to the sweep extreme is used ("deepest in premium", §6); a tie goes
+  to the earlier one. Bias and target are then checked on that FVG only.
+- An FVG completed by the shift candle is placed at the shift's close; an FVG ending on the next candle is tried
+  only if none qualified at the shift.
+- Skip reasons are checked in the order no_fvg → too_late → premium → bias → target. With no confirmed daily
+  swings yet, the setup is skipped as `bias`.
+- A re-armed cycle is one started by a new high after a shift; a new high before any shift just moves the sweep
+  extreme (§5).
+- A filled trade with no M1 bar at or after 12:00 is recorded as `no_exit_data` and counted, not scored; it still
+  uses up the day's one trade.
+- For speed, the levels before 08:30 are searched in the last 5 days of candles, not all history (§4 says no
+  limit). Five days of M5 always contain a three-candle swing, so this doesn't change any order in practice.
+- Random-entry control: entries are market orders at the open of a random M5 candle 08:30–10:55 on the trade's
+  day, same side and stop/target distances. They fill at once and are not subject to the limit-order cancel
+  rules; without this, first-minute target hits were dropped and the control was easier to beat.
+- SPX500_USD skips 206 development days for a missing M5 candle 08:00–12:00 (148 of them in 2017; scattered
+  single gaps in OANDA's early data) against 9 for NAS100_USD. The §7 rule is applied as written.
