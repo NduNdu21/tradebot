@@ -383,3 +383,27 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   random-timing check (p95 0.66), because it is added on top of this period's weak turn-of-month days. So the bar
   needs an edge at least the published size on top of what actually happened. That is strict, and it is the bar
   pre-registered for every strategy.
+
+## 2026-11-25 — Planted-edge test of the trend engines (strategies 2 and 4)
+- Test (`src/checks/planted_trend.py`, criteria fixed before running): random up/down phases (mean 126 bars,
+  seed 0) with drift μ per bar planted into every instrument's real daily bars, run through the unchanged engines.
+- Criterion 1, μ = 0 reproduces the published results: **PASS** for both (−0.04 / −£1,394; −0.10 / −£747).
+- Criterion 3, positions follow the planted phases: **PASS** for both. Position-days on the trend's side went
+  49.9% → 56.8% → 64.7% → 71.0% (strategy 2) and 49.0% → 56.5% → 64.4% → 71.5% (strategy 4).
+- Criterion 4, an independent cash ledger matches the engine's daily P&L: **PASS**, largest gap 1e-8 of a unit.
+- Criterion 2: **FAIL for both, as written.** Sharpe by μ (0, 0.02, 0.05, 0.10% per bar): strategy 2 −0.04, −0.03,
+  0.45, 1.75; strategy 4 −0.10, −0.13, 0.47, 2.62. Strategy 4 dipped at μ 0.02%, and strategy 2's control median
+  moved −0.47 → −0.26, beyond the ±0.1 allowed. Diagnosis, made after the result:
+  - The gain from the planted trend itself rises steadily: strategy 4 £1,331 / £7,210 / £19,639, strategy 2
+    £8,158 / £34,247 / £86,044. But once positions follow the planted phases, the real-price part becomes noise
+    with a 19-year spread of about £1,700 (strategy 4) and £7,500 (strategy 2). The smallest drift's gain was
+    below that noise, so a strictly rising Sharpe at every step was the wrong thing to require.
+  - The control's mean P&L barely moved (strategy 2: −£8,787, −£8,526, −£8,355, then −£6,604 at the largest drift,
+    where the strategy trades less often). Its run-to-run spread grew 3.5×, which pulls a losing control's Sharpe
+    toward zero. The criterion should have used mean P&L, not Sharpe.
+- So the fail is recorded as a fail of the criteria's design, not relabelled as a pass. The evidence underneath
+  (criteria 1, 3, 4 and the planted-gain split) shows the engines capture planted trends with the right sign and
+  size, and their accounting is exact.
+- Scale: a planted drift of 0.05% per bar (about 12.6% a year in the trend's direction, a strong trend that lasts
+  about 6 months at a time) gives Sharpe ≈ 0.45, just past the 0.4 bar. Real FX and multi-asset trend effects are
+  smaller than that, consistent with strategies 2 and 4 failing.
