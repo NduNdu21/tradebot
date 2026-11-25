@@ -68,6 +68,7 @@ def simulate(order: Order, m1: pd.DataFrame, market: bool = False) -> Result:
 
     result = Result(order=order, status="cancelled_time")
     filled = False
+    fill = entry                                     # actual fill price (short-side view), set on fill
     for t, b in view.iterrows():
         if not filled:
             if t >= entry_end:                       # §6: 11:00 cancels an unfilled order
@@ -98,18 +99,18 @@ def simulate(order: Order, m1: pd.DataFrame, market: bool = False) -> Result:
             # The fill bar can stop us out, but its target is only reachable from the next bar.
             if hit_stop:
                 result.stop_first = hit_target       # bar touched entry, stop and target: stop first (§9)
-                return _exit(result, sign, t, max(stop, b.ask_o) + slip, "stop", entry, risk)
+                return _exit(result, sign, t, max(stop, b.ask_o) + slip, "stop", fill, risk)
             continue
 
         if t >= exit_time:                           # §7: still open at 12:00 -> market exit
-            return _exit(result, sign, t, b.ask_o + slip, "time", entry, risk)
+            return _exit(result, sign, t, b.ask_o + slip, "time", fill, risk)
         hit_stop = b.ask_h >= stop
         hit_target = b.ask_l <= target
         if hit_stop:                                 # §9: stop and target in one bar -> stop first
             result.stop_first = hit_target
-            return _exit(result, sign, t, max(stop, b.ask_o) + slip, "stop", entry, risk)
+            return _exit(result, sign, t, max(stop, b.ask_o) + slip, "stop", fill, risk)
         if hit_target:                               # limit target: the open if it gaps past, else target
-            return _exit(result, sign, t, min(target, b.ask_o), "target", entry, risk)
+            return _exit(result, sign, t, min(target, b.ask_o), "target", fill, risk)
 
     if not filled:                                   # ran out of bars: pending until the 11:00 cut-off
         result.resolved_time = entry_end
@@ -118,9 +119,10 @@ def simulate(order: Order, m1: pd.DataFrame, market: bool = False) -> Result:
     return result
 
 
-def _exit(result, sign, t, price, reason, entry, risk):
-    """Record the exit (price given in short-side view) and R = P&L / planned risk (entry to stop)."""
+def _exit(result, sign, t, price, reason, fill, risk):
+    """Record the exit (price given in short-side view) and R = P&L from the actual fill / planned risk
+    (order entry to stop, so a better gap fill raises R without shrinking the denominator)."""
     result.exit_time, result.exit_reason = t, reason
     result.exit_price = sign * price
-    result.r = (entry - price) / risk                # short-side view: profit when price falls
+    result.r = (fill - price) / risk                # short-side view: profit when price falls
     return result

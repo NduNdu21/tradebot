@@ -100,7 +100,8 @@ class ShortTests(unittest.TestCase):
         r = simulate(short_order(), m1)
         self.assertEqual((r.fill_price, r.exit_price, r.exit_reason), (18120.0, 18122.0, "stop"))
         self.assertEqual(r.exit_time, ts("09:01"))
-        self.assertAlmostEqual(r.r, (18078 - 18122) / 34)
+        # P&L from the actual fill 18,120: (18120 - 18122) = -2 over planned risk 34 (order entry 18,078 - stop 18,112).
+        self.assertAlmostEqual(r.r, (18120 - 18122) / 34)
 
     def test_gap_better_than_target_fills_at_open(self):
         m1 = frame({"09:01": FILL, "09:02": (17980, 17985, 17975, 17980)})  # ask_o 17,981 < target
@@ -111,7 +112,8 @@ class ShortTests(unittest.TestCase):
         m1 = frame({"09:01": (18085, 18090, 18080, 18085), "09:02": (18000, 18005, 17989, 17995)})
         r = simulate(short_order(), m1)
         self.assertEqual(r.fill_price, 18085.0)
-        self.assertAlmostEqual(r.r, (18078 - 17990) / 34)  # R uses the order price, not the fill
+        # P&L from the actual fill 18,085 to target 17,990 = 95; risk stays the planned 34 -> 95/34.
+        self.assertAlmostEqual(r.r, (18085 - 17990) / 34)
 
     def test_cancel_at_1100(self):
         m1 = frame({"09:01": FLAT, "10:59": FLAT, "11:00": (18070, 18100, 18065, 18070)})

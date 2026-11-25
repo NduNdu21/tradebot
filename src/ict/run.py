@@ -29,7 +29,7 @@ LAST_DAY = date(2024, 11, 13)
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "ict")
 
 TRADE_COLUMNS = ["instrument", "day", "side", "placed_time", "entry", "stop", "target", "fill_time",
-                 "exit_time", "exit_reason", "r", "stop_first", "cycle", "year"]
+                 "fill_price", "exit_time", "exit_price", "exit_reason", "r", "stop_first", "cycle", "year"]
 
 
 def _between(df: pd.DataFrame, lo: pd.Timestamp, hi: pd.Timestamp) -> pd.DataFrame:
@@ -111,7 +111,8 @@ def _simulate_day(orders, m1, trades, counts):
             trades.append({
                 "instrument": o.instrument, "day": o.day, "side": o.side, "placed_time": o.placed_time,
                 "entry": o.entry, "stop": o.stop, "target": o.target, "fill_time": res.fill_time,
-                "exit_time": res.exit_time, "exit_reason": res.exit_reason, "r": res.r,
+                "fill_price": res.fill_price, "exit_time": res.exit_time, "exit_price": res.exit_price,
+                "exit_reason": res.exit_reason, "r": res.r,
                 "stop_first": res.stop_first, "cycle": o.cycle, "year": o.day.year,
             })
         # A cancelled order leaves `last` with resolved_time set; later orders may then be placed.

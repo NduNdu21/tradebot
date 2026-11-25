@@ -1,7 +1,7 @@
 """Tests for src.ict.evaluate: the pre-registered pass bar (§10) and the verdict."""
 import unittest
 
-from src.ict.evaluate import passes, verdict
+from src.ict.evaluate import passes, render, verdict
 
 
 def stats(n=250, mean=0.15, se=0.04, nas=0.2, spx=0.1):
@@ -51,3 +51,26 @@ class VerdictTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RenderTest(unittest.TestCase):
+    def variant(self, mean, se, p95, skips):
+        s = stats(mean=mean, se=se)
+        return {"stats": s, "se_multiple": 1, "control_p95": p95, "control_mean": -0.3,
+                "control_dropped": 0, "max_drawdown_pct": 5.0, "passed": False, "failed": ["x"],
+                "skips": skips}
+
+    def test_text_derived_from_data(self):
+        grp = {"2020": {"n": 5, "mean_r": 0.1, "se": 0.1}}
+        v = self.variant(0.15, 0.04, 0.5, {"NAS100_USD": {"missing_m5": 3}, "SPX500_USD": {"missing_m5": 7}})
+        v["stats"].update(by_side=grp, by_year=grp, stop_first=0, rearmed=0)
+        v["stats"]["by_instrument"] = {k: {"n": 1, "mean_r": g["mean_r"], "se": 0.1}
+                                       for k, g in v["stats"]["by_instrument"].items()}
+        sens = {k: {"n": 1, "mean_r": 0.0, "se": 0.1} for k in ("wick_5min", "close_1min", "close_2min")}
+        out = {"verdict": "FAIL", "primary": v, "rescue": None, "sensitivity": sens,
+               "truncation_checks": {"A_close": True, "B_close": False}}
+        text = render(out)
+        self.assertIn("Truncation check FAILED for: B_close", text)
+        self.assertIn("NAS100_USD 3, SPX500_USD 7", text)
+        self.assertIn("not met: mean R vs control 95th percentile", text)
+        self.assertNotIn("206", text)

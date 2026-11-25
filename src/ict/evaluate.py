@@ -93,7 +93,7 @@ def _group_table(title, groups):
     return "\n".join(rows)
 
 
-def _criteria(v):
+def _criteria_rows(v):
     s, m = v["stats"], v["se_multiple"]
     inst = ", ".join(f"{k} {_f(g['mean_r'])}" for k, g in s["by_instrument"].items())
     rows = [("n", str(s["n"]), ">= 200", s["n"] >= MIN_TRADES),
@@ -103,6 +103,11 @@ def _criteria(v):
              all(g["mean_r"] > 0 for g in s["by_instrument"].values())),
             ("mean R vs control 95th percentile", f"{_f(s['mean_r'])} vs {_f(v['control_p95'])}",
              "mean R > p95", s["mean_r"] > v["control_p95"])]
+    return rows
+
+
+def _criteria(v):
+    rows = _criteria_rows(v)
     out = ["| Criterion | Value | Threshold | Result |", "|---|---|---|---|"]
     return "\n".join(out + [f"| {a} | {b} | {c} | {'pass' if d else 'FAIL'} |" for a, b, c, d in rows])
 
@@ -123,17 +128,34 @@ def _detail(v):
         "\n".join(sk)])
 
 
+def _truncation_sentence(checks):
+    failed = [k for k, ok in checks.items() if not ok]
+    if not failed:
+        return "Truncation check passed for both instruments and both shift rules (no lookahead)."
+    return "Truncation check FAILED for: " + ", ".join(failed) + "."
+
+
+def _control_sentence(p):
+    met = [name for name, _, _, ok in _criteria_rows(p) if ok]
+    failed = [name for name, _, _, ok in _criteria_rows(p) if not ok]
+    return (f"The random-entry control averages {_f(p['control_mean'])} R (95th percentile "
+            f"{_f(p['control_p95'])}; market entries pay the spread against tight stops). "
+            f"Primary criteria met: {', '.join(met) or 'none'}; not met: {', '.join(failed) or 'none'}.")
+
+
+def _missing_sentence(skips):
+    parts = ", ".join(f"{i} {c.get('missing_m5', 0)}" for i, c in skips.items())
+    return f"Development days lost to missing M5 data: {parts}."
+
+
 def render(out: dict) -> str:
     p, r = out["primary"], out["rescue"]
-    lines = [HEADING, "", f"**Verdict: {out['verdict']}.** Truncation check passed for both instruments "
-             f"and both shift rules (no lookahead). The hold-out has not been run. The random-entry control "
-             f"loses heavily on average (market entries pay the spread against tight stops), so beating "
-             f"its 95th percentile is the only criterion the strategy meets besides trade count.", "",
+    lines = [HEADING, "", f"**Verdict: {out['verdict']}.** {_truncation_sentence(out['truncation_checks'])} "
+             f"The hold-out has not been run. {_control_sentence(p)}", "",
              f"### Primary: shift by close, M5, both instruments pooled "
              f"({'passed' if p['passed'] else 'failed: ' + '; '.join(p['failed'])})", "",
              _criteria(p), "", _detail(p), "",
-             "SPX500_USD lost 206 development days to missing M5 data (148 of them in 2017), "
-             "against 9 for NAS100_USD.", ""]
+             _missing_sentence(p["skips"]), ""]
     if r:
         lines += [f"### Rescue: shift by wick, M5 (stricter bar, mean R - 2 SE > 0; evaluated because the "
                   f"primary failed; {'passed' if r['passed'] else 'failed: ' + '; '.join(r['failed'])})", "",
