@@ -164,7 +164,7 @@ each order out and returns a trade in R. A runner applies the §10 protocol and 
   `"fvg_not_premium"`, `"bias"`, `"no_target"`, `"too_late"`). Task 6 applies the one-trade-per-day rule.
 
 Rules to implement, all from the spec (shorts; longs mirror): levels = latest M5 swing high and low confirmed
-before 08:30 (§4); a sweep is a candle 08:30–11:00 whose `mid_h` exceeds the level, each level once a day; the
+before 08:30 (§4); a sweep is a candle 08:30–11:00 whose `mid_h` exceeds the level, each level once a day;
 until 11:00, any candle trading above the current sweep extreme becomes the new extreme and restarts the cycle
 (new short-term low, shift and FVG), whether before the shift, after a shift that produced no order, or after an
 order was placed (§5 re-arm); no order placed at or after 11:00 (§6); a target swing low is traded through if any
