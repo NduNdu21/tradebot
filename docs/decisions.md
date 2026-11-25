@@ -298,3 +298,7 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   module stays frozen).
 - Financing markup: OANDA's rates for the 12 pairs on 2026-11-25 sum (long + short) to −2.0% to −2.1% on every
   pair, so a flat 1% per side is used.
+- Data check (before any result): all 14 pairs have H1 from 2005-01-02 with no candle errors. Each pair has only 2–4
+  development bars with no 08:00 candle. Median spread at the 08:00 New York open is 1.3–2.8 pips (p90 1.6–6.0).
+  About 80 daily bars per pair were dated Saturday, built from quotes between Friday 17:00 and Sunday 17:00 New
+  York (2005, 2011). Ruling: those candles are dropped, since the FX market is closed then (added to §2).

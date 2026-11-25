@@ -20,6 +20,8 @@ GBP_JPY, AUD_JPY, EUR_CHF. GBP_CHF and GBP_CAD are downloaded only to convert P&
 - H1 bid/ask candles from OANDA practice, from 2005-01-01. Mid = (bid + ask) / 2.
 - Daily bars are built from H1 and run 17:00 → 17:00 New York, named after the day they close. A daily bar with
   fewer than 6 H1 candles (a holiday stub) is merged into the next bar.
+- H1 candles between Friday 17:00 and Sunday 17:00 New York are dropped *(Claude, added 2026-11-25 after the data
+  check and before any result)*: OANDA's history has thin weekend quotes in 2005 and 2011, when FX is closed.
 - Interest rates: OECD "immediate rates: call money / interbank", monthly, from FRED (`IRSTCI01<cc>M156N`, cc =
   US, EZ, GB, JP, AU, NZ, CA, CH). A month's average is used only from the first day of the **next** month, so the
   signal never uses a rate that wasn't published yet.
