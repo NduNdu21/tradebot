@@ -370,3 +370,16 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   day −1) didn't hold in this period.
 - Days −3 and −2 were the strongest (+0.10%, +0.13%), but a window picked from that table would be fitted to
   this data, so it isn't a candidate. No re-tuning; the hold-out is still unused.
+
+## 2026-11-25 — Planted-edge test of the backtester
+- Owner worried that five fails meant the testing was broken. Test (`src/checks/planted_edge.py`): add a known
+  extra return δ to every turn-of-month day in the real H1 prices, run the unchanged turn-of-month backtester, and
+  compare its extra P&L with the figure worked out by hand from the trades. Criteria fixed before running.
+- Results: δ = 0 reproduces the published −0.09 / −£795 exactly. Measured vs hand-worked extra P&L: δ 0.05%/day
+  £3,308 vs £3,331 (−0.7%); 0.10% £6,543 vs £6,668 (−1.9%); 0.20% £13,100 vs £13,355 (−1.9%). The small shortfall
+  is unit rounding and costs scaling with price. Sharpe rose −0.09 → 0.27 → 0.62 → 1.26, while the random-timing
+  control's median rose only 0.16 → 0.23 → 0.30 → 0.43. All three criteria passed.
+- Verdicts: δ 0.20% passes the full bar. δ 0.10%, the published size, gets Sharpe 0.62 but just misses the
+  random-timing check (p95 0.66), because it is added on top of this period's weak turn-of-month days. So the bar
+  needs an edge at least the published size on top of what actually happened. That is strict, and it is the bar
+  pre-registered for every strategy.
