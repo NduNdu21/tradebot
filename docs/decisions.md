@@ -316,3 +316,17 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   Sharpe verdict, but the level was too aggressive and would need halving or more in any future version.
 - Per the rules there's no re-tuning. In particular, "trend on JPY crosses only" (the best pairs here) is not a
   candidate: it was picked by looking at these results. The hold-out (2024-11-14 → 2026-11-13) is still unused.
+
+## 2026-11-25 — Strategy 4: multi-asset trend, rules fixed
+- Owner: "merge and push, then build number 3" (multi-asset trend, the third idea proposed after strategy 2's
+  fail). As with strategy 2, Claude made all rule decisions, fixed before any result in
+  `docs/strategy-multi-asset-trend.md`.
+- Data checks before the rules (no results looked at): OANDA H1 history from 2005 for indices, bonds and
+  commodities, 2006-03 for metals. Indices, bonds and metals have no roll jumps; their biggest hourly gaps are news
+  days. NATGAS jumps cluster at month-ends (futures rolls), and today's commodity financing runs from −127% to +37%
+  a year, so energy and farm CFDs are excluded as not modellable. Every candidate has an 08:00 New York candle
+  almost every day (AU200 misses 322 of 4,532; the rule waits for the next bar). Median 08:00 spreads are
+  0.8–4.4 bp, silver 11.5 bp.
+- Financing markups measured from OANDA's 2026-11-25 rates: indices and bonds 2.5% per side, gold 1.1%, silver
+  1.4%. These are large next to futures costs and are charged in full.
+- Code: `src/trend/sim.daily_pnl` gained an optional `slip` argument; strategy 2's results are unchanged by it.

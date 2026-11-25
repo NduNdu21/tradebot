@@ -48,7 +48,7 @@ def positions(target, can_trade):
 FIN_DAYS = np.array([1, 1, 3, 1, 1, 0, 0])
 
 
-def daily_pnl(held, bars, long_rate, short_rate, quote_to_gbp, pair):
+def daily_pnl(held, bars, long_rate, short_rate, quote_to_gbp, pair, slip=None):
     """Daily P&L in GBP, split into parts, for a position path (1-D or 2-D: runs x bars).
 
     price: units held overnight x close change + units traded x (close - mid fill)
@@ -64,7 +64,8 @@ def daily_pnl(held, bars, long_rate, short_rate, quote_to_gbp, pair):
     half_spread = np.nan_to_num(((bars["exec_ask"] - bars["exec_bid"]) / 2).values)
 
     price = prev * dc + traded * (c - mid_fill)
-    cost = -np.abs(traded) * (half_spread + slippage(pair))
+    slip = slippage(pair) if slip is None else slip   # strategy 4 passes its own slippage
+    cost = -np.abs(traded) * (half_spread + slip)
     days = FIN_DAYS[bars.index.dayofweek]
     rate = np.where(held > 0, np.nan_to_num(long_rate), np.nan_to_num(short_rate))
     fin = np.abs(held) * c * rate * days / 365
