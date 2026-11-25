@@ -208,3 +208,35 @@
 - Not adopted: the review's lower slippage figures (0.5 / 0.15 points). Real bid/ask spreads are already used on
   every fill; the 1.0 / 0.25 slippage placeholders stay and are checked against measured spreads in Task 1.
 - Execution: subagent-driven (owner's choice).
+
+## 2026-11-25 — ICT: M1 data and spread check
+- Downloaded M1 bid/ask candles (2016-10-03 to 2026-11-25) to `data/NAS100USD_M1.csv` (3,530,130 rows) and
+  `data/SPX500USD_M1.csv` (3,183,672 rows). Development years only below (to 2024-11-13; hold-out not loaded).
+- Spread = ask_c − bid_c on M1 candles 08:30–12:00 New York, weekdays. Missing = share of the 48 M5 slots per
+  weekday (08:00–11:55 New York, built from M1) with no candle; weekday holidays count as missing.
+
+| Instrument | Year | Median spread | p90 spread | Missing M5 slots |
+|---|---|---|---|---|
+| NAS100_USD | 2016 | 0.6 | 0.8 | 1.6% |
+| NAS100_USD | 2017 | 0.8 | 1.0 | 1.2% |
+| NAS100_USD | 2018 | 0.7 | 2.2 | 1.4% |
+| NAS100_USD | 2019 | 0.7 | 2.2 | 1.1% |
+| NAS100_USD | 2020 | 0.5 | 1.9 | 1.9% |
+| NAS100_USD | 2021 | 0.5 | 1.7 | 1.0% |
+| NAS100_USD | 2022 | 0.5 | 1.7 | 0.8% |
+| NAS100_USD | 2023 | 0.5 | 1.7 | 1.0% |
+| NAS100_USD | 2024 | 0.8 | 2.3 | 0.9% |
+| NAS100_USD | all | 0.6 | 2.0 | 1.2% |
+| SPX500_USD | 2016 | 0.5 | 0.7 | 4.2% |
+| SPX500_USD | 2017 | 0.5 | 0.5 | 4.4% |
+| SPX500_USD | 2018 | 0.5 | 0.5 | 1.7% |
+| SPX500_USD | 2019 | 0.5 | 0.5 | 1.4% |
+| SPX500_USD | 2020 | 0.3 | 0.5 | 2.1% |
+| SPX500_USD | 2021 | 0.3 | 0.4 | 1.1% |
+| SPX500_USD | 2022 | 0.3 | 0.5 | 0.8% |
+| SPX500_USD | 2023 | 0.3 | 0.5 | 1.0% |
+| SPX500_USD | 2024 | 0.4 | 0.5 | 0.9% |
+| SPX500_USD | all | 0.4 | 0.5 | 1.8% |
+
+- Against the slippage placeholders: NAS100_USD median 0.6 is under 1.0. **SPX500_USD median 0.4 is over its
+  0.25 placeholder.** Placeholders left unchanged; owner to decide on §8.

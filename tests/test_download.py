@@ -1,7 +1,7 @@
 """Tests for src.download that don't need network access."""
 import unittest
 
-from src.download import COLUMNS, candle_to_row
+from src.download import COLUMNS, candle_to_row, output_path
 
 
 class CandleToRowTest(unittest.TestCase):
@@ -17,6 +17,11 @@ class CandleToRowTest(unittest.TestCase):
         self.assertEqual(list(row), COLUMNS)
         self.assertEqual(row["bid_c"], "1.1004")
         self.assertEqual(row["ask_l"], "1.0991")
+
+
+class OutputPathTest(unittest.TestCase):
+    def test_download_granularity_in_filename(self):
+        self.assertEqual(output_path("NAS100_USD", "M1"), "data/NAS100USD_M1.csv")
 
 
 if __name__ == "__main__":

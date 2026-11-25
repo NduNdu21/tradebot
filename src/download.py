@@ -1,10 +1,11 @@
-"""Download M5 bid/ask candles from the OANDA practice API and save them to CSV.
+"""Download bid/ask candles from the OANDA practice API and save them to CSV.
 
 Usage (from the repo root):
     python -m src.download
     python -m src.download --start 2016-10-03
+    python -m src.download --granularity M1 --instruments NAS100_USD SPX500_USD
 
-Writes data/<INSTRUMENT>_M5.csv with one row per completed candle:
+Writes data/<INSTRUMENT>_<GRANULARITY>.csv (default M5) with one row per completed candle:
     time (UTC), volume, bid and ask open-high-low-close.
 H1 candles are built from these files (see src/data.py), so signals and fills
 come from the same source. Bid and ask are kept separately so the backtester can
@@ -23,7 +24,7 @@ from src.config import load_config
 
 # GBP_USD is not traded; it converts EUR_USD profit and loss (in USD) to the GBP account currency.
 INSTRUMENTS = ["EUR_USD", "GBP_JPY", "GBP_USD"]
-GRANULARITY = "M5"
+GRANULARITY = "M5"  # default for --granularity
 # Six weeks before the development period (2016-11-14) so ATR and swings are warmed up.
 DEFAULT_START = "2016-10-03"
 MAX_COUNT = 5000  # OANDA's limit on candles per request
@@ -56,14 +57,19 @@ def request_with_retry(client, endpoint):
             time.sleep(2 ** attempt)
 
 
-def fetch_candles(client, instrument, start):
+def output_path(instrument, granularity):
+    """data/NAS100USD_M1.csv for ("NAS100_USD", "M1")."""
+    return os.path.join(DATA_DIR, f"{instrument.replace('_', '')}_{granularity}.csv")
+
+
+def fetch_candles(client, instrument, start, granularity=GRANULARITY):
     """Page through candles from `start` to now, MAX_COUNT at a time.
 
     Only completed candles are kept; a still-forming candle may change.
     """
     rows = []
     params = {
-        "granularity": GRANULARITY,
+        "granularity": granularity,
         "price": "BA",
         "count": MAX_COUNT,
         "from": f"{start}T00:00:00Z",
@@ -95,6 +101,7 @@ def write_csv(rows, path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--start", default=DEFAULT_START, help="first day, YYYY-MM-DD (UTC)")
+    parser.add_argument("--granularity", default=GRANULARITY, help="candle size, e.g. M5 or M1")
     parser.add_argument("--instruments", nargs="+", default=INSTRUMENTS)
     args = parser.parse_args()
 
@@ -103,8 +110,8 @@ def main():
 
     os.makedirs(DATA_DIR, exist_ok=True)
     for instrument in args.instruments:
-        rows = fetch_candles(client, instrument, args.start)
-        path = os.path.join(DATA_DIR, f"{instrument.replace('_', '')}_{GRANULARITY}.csv")
+        rows = fetch_candles(client, instrument, args.start, args.granularity)
+        path = output_path(instrument, args.granularity)
         write_csv(rows, path)
         print(f"{instrument}: {len(rows)} candles, {rows[0]['time']} -> {rows[-1]['time']} -> {path}")
 

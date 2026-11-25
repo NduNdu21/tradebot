@@ -19,25 +19,30 @@ HOLDOUT_END = pd.Timestamp("2026-11-14", tz="UTC")  # exclusive
 
 PRICE_COLUMNS = [f"{side}_{field}" for side in ("bid", "ask") for field in ("o", "h", "l", "c")]
 
-# How each column combines when 12 M5 candles become one H1 candle.
+# How each column combines when smaller candles become one larger candle.
 H1_AGG = {"volume": "sum"}
 for _side in ("bid", "ask"):
     H1_AGG.update({f"{_side}_o": "first", f"{_side}_h": "max", f"{_side}_l": "min", f"{_side}_c": "last"})
 
 
-def load_m5(pair, include_holdout=False, data_dir=DATA_DIR):
-    """Read data/<PAIR>_M5.csv into a DataFrame indexed by UTC candle open time.
+def load_candles(instrument, granularity, include_holdout=False, data_dir=DATA_DIR):
+    """Read data/<INSTRUMENT without _>_<granularity>.csv into a DataFrame indexed by UTC open time.
 
     Candles from HOLDOUT_START onward are dropped unless include_holdout=True.
     Only the single, final hold-out run should ever pass True.
     """
-    path = os.path.join(data_dir, f"{pair}_M5.csv")
+    path = os.path.join(data_dir, f"{instrument.replace('_', '')}_{granularity}.csv")
     df = pd.read_csv(path)
     df["time"] = pd.to_datetime(df["time"], utc=True)
     df = df.set_index("time")
     if include_holdout:
         return df[df.index < HOLDOUT_END]
     return df[df.index < HOLDOUT_START]
+
+
+def load_m5(pair, include_holdout=False, data_dir=DATA_DIR):
+    """Read data/<PAIR>_M5.csv (see load_candles)."""
+    return load_candles(pair, "M5", include_holdout, data_dir)
 
 
 def add_mid(df):
@@ -48,16 +53,21 @@ def add_mid(df):
     return df
 
 
-def to_h1(m5):
-    """Combine M5 candles into H1 candles on the UTC hour grid.
+def to_timeframe(df, rule):
+    """Combine candles into larger ones on the UTC grid (rule like "5min" or "1h").
 
-    Each H1 candle is labelled with its open time and covers [hh:00, hh+1:00).
-    Hours with no M5 candles (weekends, holidays) are dropped, not filled.
+    Each candle is labelled with its open time and covers [t, t+rule).
+    Bins with no input candles (weekends, holidays) are dropped, not filled.
     """
-    h1 = m5.resample("1h", label="left", closed="left").agg(H1_AGG)
-    h1 = h1.dropna(subset=["bid_o"])
-    h1["volume"] = h1["volume"].astype(int)
-    return add_mid(h1)
+    out = df.resample(rule, label="left", closed="left").agg(H1_AGG)
+    out = out.dropna(subset=["bid_o"])
+    out["volume"] = out["volume"].astype(int)
+    return add_mid(out)
+
+
+def to_h1(m5):
+    """Combine M5 candles into H1 candles on the UTC hour grid."""
+    return to_timeframe(m5, "1h")
 
 
 def check_candles(df):

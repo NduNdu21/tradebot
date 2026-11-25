@@ -5,7 +5,7 @@ import unittest
 
 import pandas as pd
 
-from src.data import HOLDOUT_START, check_candles, find_gaps, load_m5, to_h1
+from src.data import HOLDOUT_START, check_candles, find_gaps, load_candles, load_m5, to_h1, to_timeframe
 
 
 def make_m5(times, bid_prices, spread=0.0002):
@@ -97,6 +97,33 @@ class HoldoutCutTest(unittest.TestCase):
     def test_holdout_only_with_explicit_flag(self):
         df = load_m5("EURUSD", include_holdout=True, data_dir=self.tmp.name)
         self.assertEqual(len(df), 3)
+
+
+class LoadCandlesTest(unittest.TestCase):
+    def test_load_candles_cuts_holdout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            times = ["2024-11-13 23:59", "2024-11-14 00:00"]
+            df = make_m5(times, [(1.1, 1.1, 1.1, 1.1)] * 2)
+            df.index = df.index.strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+            df.to_csv(os.path.join(tmp, "NAS100USD_M1.csv"), index_label="time")
+            kept = load_candles("NAS100_USD", "M1", data_dir=tmp)
+            self.assertEqual(list(kept.index), [pd.Timestamp("2024-11-13 23:59", tz="UTC")])
+            both = load_candles("NAS100_USD", "M1", include_holdout=True, data_dir=tmp)
+            self.assertEqual(len(both), 2)
+
+
+class ToTimeframeTest(unittest.TestCase):
+    def test_to_timeframe_m1_to_m5(self):
+        times = pd.date_range("2024-01-02 13:30", periods=10, freq="1min", tz="UTC")
+        prices = [(100 + i, 110 + i, 90 + i, 101 + i) for i in range(10)]
+        m5 = to_timeframe(make_m5(times, prices, spread=1.0), "5min")
+        self.assertEqual(list(m5.index), [pd.Timestamp("2024-01-02 13:30", tz="UTC"),
+                                          pd.Timestamp("2024-01-02 13:35", tz="UTC")])
+        first = m5.iloc[0]
+        self.assertEqual(first["bid_h"], 114)
+        self.assertEqual(first["bid_o"], 100)
+        self.assertEqual(first["ask_c"], 106)
+        self.assertEqual(first["mid_h"], (114 + 115) / 2)
 
 
 if __name__ == "__main__":
