@@ -781,3 +781,25 @@ P&L parts: price £2,913, spread + slippage £-1,125, financing £-2,535. Peak m
 Per instrument (GBP): XAU_USD 817, EUR_CHF 253, SPX500_USD 195, GBP_JPY 161, USD_JPY 131, EUR_JPY 43, EUR_USD 35, GBP_USD 15, DE30_EUR -9, AUD_USD -10, AUD_JPY -37, UK10YB_GBP -48, USB30Y_USD -62, EUR_GBP -67, NZD_USD -99, JP225_USD -100, USD_CAD -111, XAG_USD -120, EU50_EUR -195, USD_CHF -241, UK100_GBP -263, DE10YB_EUR -309, USB10Y_USD -318, AU200_AUD -407
 
 Per year (GBP): 2006 59, 2007 -150, 2008 545, 2009 -164, 2010 153, 2011 117, 2012 -448, 2013 723, 2014 -138, 2015 31, 2016 -43, 2017 -227, 2018 -389, 2019 161, 2020 73, 2021 -266, 2022 138, 2023 -633, 2024 -291
+
+## Turn of the month, development (2006-01-02 → 2024-11-13)
+
+**Verdict: FAIL** (pre-registered bar, `docs/strategy-turn-of-month.md` §6).
+
+| Check | Result | Pass |
+|---|---|---|
+| sharpe >= 0.4 | Sharpe -0.09 | ✗ |
+| positive in >= 2 of 3 sub-periods | 2006–2011 £-498, 2012–2017 £270, 2018–2024 £-567 | ✗ |
+| beats control 95th percentile | -0.09 vs random-timing p95 0.52 (median 0.16) | ✗ |
+| sharpe > 0.2 without best pair | -0.14 without NAS100_USD | ✗ |
+
+Annual return -0.42% on a GBP 10,000 base (no compounding), max drawdown 14.0%, total £-795.
+
+Reported, not judged:
+
+- 903 trades (1 skipped), mean £-0.88, t-statistic -0.71, win rate 53%.
+- P&L parts: price £348, spread + slippage £-477, financing £-666. Financing off: Sharpe -0.01.
+- Mean price move per trade: turn of month £0.39 vs any 4-day hold £2.62.
+- Per instrument (GBP): SPX500_USD -137, NAS100_USD 186, US30_USD -179, US2000_USD -665
+- Per year (GBP): 2006 -186, 2007 -253, 2008 -832, 2009 2, 2010 624, 2011 148, 2012 348, 2013 458, 2014 -242, 2015 -416, 2016 -322, 2017 444, 2018 -343, 2019 -300, 2020 923, 2021 32, 2022 -331, 2023 221, 2024 -768
+- Per entry month (GBP): 1 236, 2 29, 3 572, 4 -943, 5 212, 6 955, 7 -1,299, 8 -430, 9 103, 10 328, 11 -179, 12 -380

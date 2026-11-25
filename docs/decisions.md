@@ -356,3 +356,17 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   that close is 0.4–1.5 bp. OANDA's CFD financing schedule from the API is Mon–Thu 1 day, Fri 3 days.
 - `src/tom/nyse.py` builds NYSE trading days from the holiday rules plus 5 one-off closures. For 2016-10 → 2026-11
   it matches the hand-checked `src/ict/calendar.py` list exactly.
+
+## 2026-11-25 — Strategy 5: turn of the month, development result
+- **FAIL.** Sharpe −0.09 (bar ≥ 0.4); sub-periods −£498 / +£270 / −£567; −0.14 without NAS100. It lost to random
+  timing (control median 0.16, p95 0.52): random 4-day holds earn the equity premium, and the turn-of-month ones
+  earned less.
+- 903 trades, mean −£0.88, t −0.71, 53% winners. Price +£348, spread and slippage −£477, financing −£666; with
+  financing off the Sharpe would be −0.01. Mean price move per trade was £0.39 at the turn of the month vs £2.62
+  for any 4-day hold.
+- Checks: the CFD's 16:00 mid matches official S&P 500 closes to within 0.1–0.7% on 5 spot dates. An independent
+  day-by-day count over 2006–2024 (SPX500, 16:00 to 16:00) gives day −1 −0.093%, +1 +0.125%, +2 +0.069%,
+  +3 +0.017%; turn-of-month days averaged 0.029% vs 0.043% on other days. The published effect (strongest on
+  day −1) didn't hold in this period.
+- Days −3 and −2 were the strongest (+0.10%, +0.13%), but a window picked from that table would be fitted to
+  this data, so it isn't a candidate. No re-tuning; the hold-out is still unused.

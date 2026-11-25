@@ -1,6 +1,6 @@
 # Strategy 5: turn of the month (US index CFDs)
 
-**Status: rules fixed 2026-11-25, before any result was seen.** The owner asked to "build turn of the month", the
+**Status: FAILED its development test (2026-11-25): Sharpe −0.09; hold-out not run.** Rules fixed 2026-11-25, before any result was seen. The owner asked to "build turn of the month", the
 first of the two short-hold ideas left after strategy 4 failed. As for strategies 2 and 4, Claude made every rule
 decision *(Claude)*, from the published definition of the effect and from data checks of availability and spreads,
 never from strategy results. Nothing may change after the first run; a fail is final.
