@@ -131,6 +131,40 @@ class ShortTests(unittest.TestCase):
         r = simulate(short_order(), m1)
         self.assertEqual((r.exit_reason, r.exit_time), ("time", ts("12:02")))
 
+    def test_fill_stop_and_target_in_one_bar(self):
+        m1 = frame({"09:01": (18060, 18111, 17989, 18050)})
+        r = simulate(short_order(), m1)
+        self.assertEqual((r.status, r.exit_reason, r.exit_price), ("filled", "stop", 18113.0))
+        self.assertTrue(r.stop_first)
+
+    def test_no_exit_data(self):
+        # Filled, but the data stops before 12:00: no exit bar, so status says so.
+        r = simulate(short_order(), frame({"09:01": FILL, "09:02": FLAT}))
+        self.assertEqual(r.status, "no_exit_data")
+        self.assertEqual(r.fill_price, 18078.0)
+        self.assertIsNone(r.exit_price)
+        self.assertIsNone(r.r)
+
+    def test_summer_time_boundaries(self):
+        # July: New York is UTC-4, so 11:00 NY = 15:00 UTC and 12:00 NY = 16:00 UTC.
+        day = date(2024, 7, 11)
+        o = Order("NAS100_USD", day, "short", pd.Timestamp("2024-07-11 13:00", tz="UTC"),
+                  18078.0, 18112.0, 17990.0, 18100.0, {}, 1)
+
+        def f(bars):
+            m = frame({"09:01": FLAT})
+            m = pd.DataFrame.from_dict({pd.Timestamp(f"2024-07-11 {k}", tz="UTC"): dict(
+                bid_o=v[0], bid_h=v[1], bid_l=v[2], bid_c=v[3], ask_o=v[0] + 1, ask_h=v[1] + 1,
+                ask_l=v[2] + 1, ask_c=v[3] + 1) for k, v in bars.items()}, orient="index")
+            return m
+        # A fill-range bar at 14:59 UTC (10:59 NY) fills; the 16:00 UTC bar is the time exit.
+        r = simulate(o, f({"14:59": FILL, "15:30": FLAT, "16:00": (18040, 18045, 18035, 18040)}))
+        self.assertEqual((r.fill_time, r.exit_reason, r.exit_time, r.exit_price),
+                         (pd.Timestamp("2024-07-11 14:59", tz="UTC"), "time",
+                          pd.Timestamp("2024-07-11 16:00", tz="UTC"), 18042.0))
+        # The same fill bar at 15:00 UTC (11:00 NY) is too late.
+        self.assertEqual(simulate(o, f({"15:00": FILL, "16:00": FLAT})).status, "cancelled_time")
+
     def test_order_filled_after_1100_is_not_possible(self):
         m1 = frame({"11:00": FILL, "12:00": FLAT})
         self.assertEqual(simulate(short_order(), m1).status, "cancelled_time")

@@ -24,7 +24,9 @@ SLIPPAGE = {"NAS100_USD": 1.0, "SPX500_USD": 0.5}
 @dataclass
 class Result:
     order: Order
-    status: str                         # "filled", "cancelled_time", "cancelled_stop", "cancelled_target"
+    # "filled", "cancelled_time", "cancelled_stop", "cancelled_target", or "no_exit_data"
+    # (filled, but no M1 bar at/after 12:00 within 6 h to close it: exit fields None)
+    status: str
     fill_time: Optional[pd.Timestamp] = None
     fill_price: Optional[float] = None
     exit_time: Optional[pd.Timestamp] = None
@@ -35,12 +37,18 @@ class Result:
 
 
 def simulate(order: Order, m1: pd.DataFrame) -> Result:
-    """Walk the M1 bars from the order's placement and report what happened to it."""
+    """Walk the M1 bars from the order's placement and report what happened to it.
+
+    m1's index must be sorted and tz-aware UTC."""
     times = session_times(order.day)
     entry_end, exit_time = times["entry_end"], times["exit"]
     slip = SLIPPAGE[order.instrument]
 
-    bars = m1[m1.index >= order.placed_time]
+    # Only the bars that can matter: from placement up to 6 h after the 12:00 exit (so a late first
+    # bar still gives a time exit). searchsorted avoids a boolean mask over the whole history.
+    lo = m1.index.searchsorted(order.placed_time, side="left")
+    hi = m1.index.searchsorted(exit_time + pd.Timedelta(hours=6), side="left")
+    bars = m1.iloc[lo:hi]
     # Short-side view of the bars: for a long, prices change sign and bid/ask swap.
     if order.side == "long":
         sign = -1.0
@@ -81,6 +89,7 @@ def simulate(order: Order, m1: pd.DataFrame) -> Result:
             result.fill_price = sign * fill
             # The fill bar can stop us out, but its target is only reachable from the next bar.
             if hit_stop:
+                result.stop_first = hit_target       # bar touched entry, stop and target: stop first (§9)
                 return _exit(result, sign, t, max(stop, b.ask_o) + slip, "stop", entry, risk)
             continue
 
@@ -94,8 +103,8 @@ def simulate(order: Order, m1: pd.DataFrame) -> Result:
         if hit_target:                               # limit target: the open if it gaps past, else target
             return _exit(result, sign, t, min(target, b.ask_o), "target", entry, risk)
 
-    if filled:
-        raise ValueError("no M1 bar at or after 12:00 New York to close the position")
+    if filled:                                       # no bar to close on (data gap): Task 6 counts these
+        result.status = "no_exit_data"
     return result
 
 
