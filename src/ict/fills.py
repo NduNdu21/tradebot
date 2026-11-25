@@ -38,10 +38,12 @@ class Result:
     resolved_time: Optional[pd.Timestamp] = None
 
 
-def simulate(order: Order, m1: pd.DataFrame) -> Result:
+def simulate(order: Order, m1: pd.DataFrame, market: bool = False) -> Result:
     """Walk the M1 bars from the order's placement and report what happened to it.
 
-    m1's index must be sorted and tz-aware UTC."""
+    m1's index must be sorted and tz-aware UTC. With market=True (random-entry control) the first bar
+    at/after placed_time fills at its open on the fill side, with no pre-fill cancel rules; the
+    normal post-fill rules then apply from that bar."""
     times = session_times(order.day)
     entry_end, exit_time = times["entry_end"], times["exit"]
     slip = SLIPPAGE[order.instrument]
@@ -74,6 +76,9 @@ def simulate(order: Order, m1: pd.DataFrame) -> Result:
             hit_entry = b.bid_h >= entry
             hit_stop = b.ask_h >= stop
             hit_target = b.ask_l <= target
+            if market:                               # market entry: fills at this bar's open, never cancelled
+                hit_entry, hit_target, entry = True, False, b.bid_o
+                risk = abs(entry - stop)
             if hit_entry and hit_stop:
                 pass                                 # fills and is stopped out below (conservative)
             elif hit_target:                         # §6: target before a fill cancels, even in the fill bar

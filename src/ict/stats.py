@@ -5,7 +5,6 @@ max_drawdown_pct    largest peak-to-trough fall of the additive equity curve, in
 random_control      same trades, but entered at a random time: is the setup better than chance?
 truncation_check    do orders placed before a cut change when the data after the cut is removed?
 """
-from collections import Counter
 from datetime import date, timedelta
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -94,7 +93,7 @@ def random_control_dropped(trades: pd.DataFrame, m1_by_instrument: Dict[str, pd.
         sign = 1 if t.side == "short" else -1        # a short's stop is above entry, a long's below
         order = Order(t.instrument, day, t.side, placed, entry, entry + sign * stop_dist,
                       entry - sign * target_dist, entry, {}, 1)
-        res = simulate(order, bars)
+        res = simulate(order, bars, market=True)
         return res.r if res.status == "filled" else None
 
     means, dropped = [], 0

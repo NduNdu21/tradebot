@@ -45,6 +45,29 @@ FLAT = (18050, 18055, 18045, 18050)   # touches nothing (ask_h 18,056; ask_l 18,
 FILL = (18070, 18078, 18065, 18070)   # bid_h reaches the entry exactly
 
 
+class MarketTests(unittest.TestCase):
+    """market=True (random-entry control): fill at the first bar's open, no pre-fill cancel rules."""
+
+    def order(self):
+        # Entered at 18,050: stop 18,084, target 17,962 (risk 34).
+        return Order("NAS100_USD", DAY, "short", ts("09:00"), 18050.0, 18084.0, 17962.0, 18050.0, {}, 1)
+
+    def test_first_bar_target_touch_is_not_cancelled(self):
+        m1 = frame({"09:00": (18050, 18055, 17960, 18000), "09:01": (18000, 18005, 17961, 17963)})
+        r = simulate(self.order(), m1, market=True)
+        self.assertEqual((r.status, r.fill_time, r.fill_price), ("filled", ts("09:00"), 18050.0))
+        # the target is only reachable from the next bar (ask_l 17,962 there)
+        self.assertEqual((r.exit_time, r.exit_reason), (ts("09:01"), "target"))
+        self.assertAlmostEqual(r.r, 88 / 34)
+        self.assertEqual(simulate(self.order(), m1).status, "cancelled_target")   # default unchanged
+
+    def test_first_bar_stop_touch_stops_out(self):
+        m1 = frame({"09:00": (18050, 18090, 18045, 18080)})     # ask_h 18,091 >= stop 18,084
+        r = simulate(self.order(), m1, market=True)
+        self.assertEqual((r.status, r.exit_time, r.exit_reason), ("filled", ts("09:00"), "stop"))
+        self.assertAlmostEqual(r.r, (18050 - 18085) / 34)       # stop 18,084 + 1 slippage
+
+
 class ShortTests(unittest.TestCase):
     def test_slippage_values(self):
         self.assertEqual(SLIPPAGE, {"NAS100_USD": 1.0, "SPX500_USD": 0.5})

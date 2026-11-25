@@ -9,7 +9,10 @@ import pandas as pd
 from src.ict import stats
 from src.ict.calendar import NY
 from src.ict.setups import Order
+from src.data import to_timeframe
+from src.ict.setups import find_orders
 from tests.test_ict_run import m1_day
+from tests.test_ict_setups import DAILY, DAY, flat, frame, rows
 
 DAYS = [date(2024, 1, 8), date(2024, 1, 9), date(2024, 1, 10), date(2024, 1, 11), date(2024, 1, 12)]
 
@@ -79,6 +82,31 @@ class RandomControlTests(unittest.TestCase):
         self.assertEqual(len(set(round(x, 9) for x in means)), 1)
         self.assertLess(means[0], 0)
 
+    def _scripted(self, side, move):
+        """One trade (stop 10 and target 20 from entry) on flat bars (bid 100, ask 101) that, from 11:05
+        (after every control entry), swing `move` 'down' or 'up' inside one bar. Returns the control mean R."""
+        m1 = m1_day(DAYS[0])
+        bar = m1.index[m1.index >= ts(DAYS[0], "11:05")]
+        m1.loc[bar[0], ["bid_l", "ask_l"] if move == "down" else ["bid_h", "ask_h"]] = \
+            [70.0, 71.0] if move == "down" else [130.0, 131.0]
+        m1.loc[bar[1:], ["bid_o", "bid_h", "bid_l", "bid_c"]] = 70.0 if move == "down" else 130.0
+        m1.loc[bar[1:], ["ask_o", "ask_h", "ask_l", "ask_c"]] = 71.0 if move == "down" else 131.0
+        tr = pd.DataFrame([{"instrument": "NAS100_USD", "day": DAYS[0], "side": side,
+                            "entry": 100.0, "stop": 110.0 if side == "short" else 90.0,
+                            "target": 80.0 if side == "short" else 120.0}])
+        means, dropped = stats.random_control_dropped(tr, {"NAS100_USD": m1}, runs=4, seed=3)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(len(set(means)), 1)
+        return means[0]
+
+    def test_control_directions_and_distances(self):
+        # Short enters at the bid (100): target 80, stop 110. Long enters at the ask (101): target 121,
+        # stop 91. Stop exits pay 1.0 slippage; target exits are limit fills at the target.
+        self.assertAlmostEqual(self._scripted("short", "down"), 2.0)     # target: (100-80)/10
+        self.assertAlmostEqual(self._scripted("short", "up"), -1.1)      # stop 110 + slippage 1
+        self.assertAlmostEqual(self._scripted("long", "up"), 2.0)        # target: (121-101)/10
+        self.assertAlmostEqual(self._scripted("long", "down"), -1.1)     # stop 91 - slippage 1
+
     def test_no_m1_bars_are_dropped_and_counted(self):
         m1 = synthetic_m1()
         tr = synthetic_trades()
@@ -90,7 +118,18 @@ class RandomControlTests(unittest.TestCase):
 
 class TruncationTests(unittest.TestCase):
     def test_real_find_orders_passes(self):
-        self.assertTrue(stats.truncation_check("NAS100_USD", "close", cuts=10, m1=synthetic_m1()))
+        # The worked example as M1 bars (each M5 candle repeated 5 times), quiet until 11:55 so the
+        # day is complete. The one-day M1 file has no daily history, so the daily frame of the setups
+        # tests is injected; the real find_orders must still find the 09:00 order.
+        m5 = frame(rows(flat("11:05", "11:55", 18060, 18045)))
+        m1 = pd.concat([m5.set_axis(m5.index + pd.Timedelta(minutes=i)) for i in range(5)]).sort_index()
+        m1["volume"] = 1
+        m1.index.name = "time"
+        with_daily = lambda m, d, *a: find_orders(m, DAILY, *a)
+        full, _ = with_daily(to_timeframe(m1, "5min"), None, "NAS100_USD", DAY, "close")
+        self.assertGreaterEqual(len(full), 1)
+        self.assertTrue(stats.truncation_check("NAS100_USD", "close", cuts=25, m1=m1,
+                                               find_orders_fn=with_daily))
 
     def test_truncation_catches_peek(self):
         def peeking(m5, daily, instrument, day, rule, bar):
