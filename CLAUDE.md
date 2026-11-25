@@ -1,6 +1,6 @@
 # Tradebot  
-Python forex bot using the OANDA v20 REST API (practice environment only).  
-Strategy: Fibonacci swing-to-swing retracement on EURUSD and GBPJPY, H1.  
+Python trading bot using the OANDA v20 REST API (practice environment only).  
+Strategy: ICT liquidity sweep → market structure shift → FVG, intraday on US index CFDs (NAS100_USD, SPX500_USD). Rules in progress; see docs/decisions.md. (Fibonacci on EURUSD/GBPJPY H1 is retired.)
   
 ## Rules  
 - Never place live orders. OANDA_ENV must be "practice".  

@@ -166,3 +166,32 @@
   are the FX effects with the longest published evidence, which needs many pairs.
 - Draft rules in `docs/strategy-trend-carry.md`; everything except the three choices above is *(proposed)* and
   awaits the owner's rulings. The hold-out (2024-11-14 → 2026-11-13) is still unused and reserved for this strategy.
+
+## 2026-11-25 — ICT: rule source
+- Gemini extracts for 2016 Mentorship Month 1, Month 3 and 2/8 of Month 4 saved verbatim in `docs/ict-extracts/`.
+  None of them define CHoCH/MSS; they teach turtle soup → structure break → order block / FVG entry.
+- Owner's choice: keep the sweep → CHoCH → FVG model and fill the CHoCH/MSS rules from the 2022 ICT Mentorship
+  (41-episode YouTube playlist, Jan–Jun 2022) before writing any rules.
+
+## 2026-11-25 — ICT: market
+- 2022 Mentorship Ep 1–10 extract saved in `docs/ict-extracts/2022-mentorship-ep01-10.md`. Gemini states it did not
+  watch the videos, so core rules are to be checked against the videos before they go into the strategy.
+- Owner's choice: test on US index CFDs (the model is taught on NQ/ES futures), not forex.
+- Checked on the OANDA practice API: NAS100_USD, SPX500_USD, US30_USD, US2000_USD are available, with M5 and M1
+  bid/ask candles from at least 2016-10-03. Oct-2016 spreads: 0.6, 0.5, 2.0, 0.6 index points.
+- Caveat: OANDA CFDs are not the futures contracts; prices and session hours may differ slightly from NQ/ES.
+
+## 2026-11-25 — ICT: verification and first rulings
+- Claude checked Gemini's 2022 extract against the YouTube captions of Episodes 2–10 (`docs/ict-extracts/2022-verification.md`).
+  The core model is confirmed; several details were wrong (swing definition, stop, partials, the two-FVG rule,
+  an unsupported "4 trades/day", afternoon end time).
+- Owner's rulings:
+  - Structure shift: test both versions (candle close beyond the swing, Ep 6; wick through it, Ep 4). One is the
+    primary, the other a sensitivity check (primary to be confirmed).
+  - Daily bias: daily premium/discount. Buy only below 50% of the last daily 3-candle swing range, sell only above it.
+  - Stop: above candle 1 of the FVG (below it for longs).
+  - Sessions: New York morning only, 08:30–12:00; entries before 11:00; flat by 12:00.
+- Evaluation (owner's ruling): the close-based shift is the primary. If it fails on development, the wick-based
+  shift gets one rescue attempt at a stricter bar (mean R − 2 SE > 0 instead of − 1 SE). Whichever passes goes
+  to the hold-out once; only a hold-out pass counts.
+- Draft rules written to `docs/strategy-ict.md`; Claude's fill-ins are marked *(proposed)*.
