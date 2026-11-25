@@ -11,7 +11,7 @@ import pandas as pd
 
 NY = "America/New_York"
 
-# Source: NYSE published holiday and early-close calendars (nyse.com), 2016-10-03
+# Source: NYSE holiday and early-close rules, written out by hand and checked against an independent rule-derived list (2026-11-25), 2016-10-03
 # to 2026-11-13. Weekend holidays use the NYSE observance rule (Sat -> Fri,
 # Sun -> Mon; New Year's on a Saturday is not observed).
 NYSE_HOLIDAYS = {
