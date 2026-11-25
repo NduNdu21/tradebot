@@ -614,3 +614,111 @@ Drawn with seed 2026 from all 2904 baseline legs. Times are UTC candle times (M5
 The strategy's mean R is at the **9.5th percentile** of the random distribution: 95 of 1000 random runs did worse. Random setups per run: mean 1677 of 1910 (redrawn because the pair was busy: 1313; dropped: 114.0).
 
 <!-- diagnostics:end -->
+
+## ICT, development (2016-11-14 → 2024-11-13)
+
+**Verdict: fail.** Truncation check passed for both instruments and both shift rules (no lookahead). The hold-out has not been run. The random-entry control loses heavily on average (market entries pay the spread against tight stops), so beating its 95th percentile is the only criterion the strategy meets besides trade count.
+
+### Primary: shift by close, M5, both instruments pooled (failed: mean R >= 0.1; mean R - 1 SE > 0; mean R > 0 on each instrument)
+
+| Criterion | Value | Threshold | Result |
+|---|---|---|---|
+| n | 231 | >= 200 | pass |
+| mean R | -0.159 | >= +0.1 | FAIL |
+| mean R - 1 SE | -0.285 | > 0 | FAIL |
+| mean R on each instrument | NAS100_USD -0.205, SPX500_USD -0.116 | > 0 on both | FAIL |
+| mean R vs control 95th percentile | -0.159 vs -0.333 | mean R > p95 | pass |
+
+| Instrument | n | mean R | SE |
+|---|---|---|---|
+| NAS100_USD | 112 | -0.205 | 0.177 |
+| SPX500_USD | 119 | -0.116 | 0.179 |
+
+| Side | n | mean R | SE |
+|---|---|---|---|
+| long | 72 | +0.205 | 0.250 |
+| short | 159 | -0.324 | 0.142 |
+
+| Year | n | mean R | SE |
+|---|---|---|---|
+| 2016 | 4 | +2.537 | 1.968 |
+| 2017 | 24 | -0.642 | 0.333 |
+| 2018 | 33 | -0.124 | 0.311 |
+| 2019 | 21 | -0.430 | 0.361 |
+| 2020 | 37 | -0.102 | 0.322 |
+| 2021 | 34 | -0.252 | 0.354 |
+| 2022 | 24 | -0.211 | 0.375 |
+| 2023 | 35 | -0.228 | 0.315 |
+| 2024 | 19 | +0.367 | 0.409 |
+
+Max drawdown at 0.5% risk per trade: 29.9 percentage points. Stop-first trades: 1. Trades from re-armed cycles: 20. Random control: mean of runs -0.488, 95th percentile -0.333, control trades dropped over 1000 runs: 0.
+
+| Skip reason | NAS100_USD | SPX500_USD |
+|---|---|---|
+| bias | 386 | 360 |
+| early_close | 16 | 16 |
+| fvg_not_premium | 1244 | 1084 |
+| holiday | 75 | 75 |
+| missing_m5 | 9 | 206 |
+| no_fvg | 1030 | 718 |
+| no_shift | 1608 | 1441 |
+| no_target | 43 | 28 |
+| one_per_day | 11 | 7 |
+| too_late | 78 | 55 |
+
+SPX500_USD lost 206 development days to missing M5 data (148 of them in 2017), against 9 for NAS100_USD.
+
+### Rescue: shift by wick, M5 (stricter bar, mean R - 2 SE > 0; evaluated because the primary failed; failed: mean R >= 0.1; mean R - 2 SE > 0; mean R > 0 on each instrument)
+
+| Criterion | Value | Threshold | Result |
+|---|---|---|---|
+| n | 269 | >= 200 | pass |
+| mean R | -0.105 | >= +0.1 | FAIL |
+| mean R - 2 SE | -0.342 | > 0 | FAIL |
+| mean R on each instrument | NAS100_USD -0.046, SPX500_USD -0.164 | > 0 on both | FAIL |
+| mean R vs control 95th percentile | -0.105 vs -0.366 | mean R > p95 | pass |
+
+| Instrument | n | mean R | SE |
+|---|---|---|---|
+| NAS100_USD | 134 | -0.046 | 0.174 |
+| SPX500_USD | 135 | -0.164 | 0.161 |
+
+| Side | n | mean R | SE |
+|---|---|---|---|
+| long | 82 | +0.254 | 0.237 |
+| short | 187 | -0.263 | 0.134 |
+
+| Year | n | mean R | SE |
+|---|---|---|---|
+| 2016 | 3 | +4.134 | 1.925 |
+| 2017 | 28 | -0.650 | 0.297 |
+| 2018 | 33 | -0.233 | 0.307 |
+| 2019 | 24 | -0.446 | 0.351 |
+| 2020 | 38 | -0.040 | 0.332 |
+| 2021 | 39 | -0.124 | 0.324 |
+| 2022 | 24 | -0.409 | 0.359 |
+| 2023 | 51 | +0.011 | 0.280 |
+| 2024 | 29 | +0.394 | 0.341 |
+
+Max drawdown at 0.5% risk per trade: 31.2 percentage points. Stop-first trades: 1. Trades from re-armed cycles: 57. Random control: mean of runs -0.505, 95th percentile -0.366, control trades dropped over 1000 runs: 0.
+
+| Skip reason | NAS100_USD | SPX500_USD |
+|---|---|---|
+| bias | 378 | 358 |
+| early_close | 16 | 16 |
+| fvg_not_premium | 1255 | 1082 |
+| holiday | 75 | 75 |
+| missing_m5 | 9 | 206 |
+| no_fvg | 2164 | 1545 |
+| no_shift | 1481 | 1322 |
+| no_target | 38 | 24 |
+| one_per_day | 12 | 7 |
+| too_late | 74 | 66 |
+
+### Reported, not judged
+
+| Variant | n | mean R | SE |
+|---|---|---|---|
+| Shift by wick, M5 | 269 | -0.105 | 0.118 |
+| Shift by close, 1-minute chart | 977 | -0.711 | 0.058 |
+| Shift by close, 2-minute chart | 576 | -0.491 | 0.075 |
