@@ -443,3 +443,18 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   a rising market, which suits a long-only dip-buyer. The development figure (0.54) is the better guide to what to
   expect. Demo trading is the next test.
 - The hold-out has now been used. Later strategies need fresh out-of-sample data (e.g. live demo results).
+
+## 2026-11-26 — Demo trading: built, not deployed
+- The owner chose a cloud server for the demo run and left the rest to Claude. Choice: a Render cron job
+  (`render.yaml`, schedule `2 20,21 * * 1-5` UTC), because it runs whether or not the Mac is on. Render cron has no
+  disk, so the job is stateless: open positions are OANDA trades tagged `meanrev`, with the entry NY date stored in
+  the trade's client extensions so the 10-day time stop survives between runs.
+- Safety rails: practice only; no order unless `TRADING_ENABLED` is exactly `yes` (otherwise a dry run that logs
+  what it would do); notional per order capped at GBP 10,000; at most one tagged trade per index; long-only
+  fill-or-kill market orders; an untagged or duplicate trade on an index blocks that index with a warning.
+- Rollout, each step needing the owner's go-ahead: deploy with `TRADING_ENABLED=no`; dry run for at least 3 NYSE
+  days and check the logs; then switch `TRADING_ENABLED` to `yes`.
+- Success criteria, fixed now and judged after 3 months: (1) every backtest trade in the period appears live on the
+  same NY days, apart from counted missed runs; (2) the median live fill is within 2x the backtest's assumed spread
+  plus slippage of its 16:00-open price; (3) no safety-rail breaches. Profitability is reported, not judged.
+- Nothing has been deployed and no order has been placed.

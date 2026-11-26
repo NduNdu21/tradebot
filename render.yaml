@@ -1,0 +1,24 @@
+# Daily demo-trading job (practice account only).
+# Schedule: 20:02 and 21:02 UTC, Monday to Friday. 16:02 New York is one of these in summer time and the
+# other in winter time; the job's own window check makes only one of the two runs act.
+# Secrets (OANDA_TOKEN, OANDA_ACCOUNT_ID) are entered in the Render dashboard, never in this repo.
+services:
+  - type: cron
+    name: tradebot-demo
+    runtime: python
+    region: frankfurt
+    plan: starter
+    schedule: "2 20,21 * * 1-5"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m src.live.run
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: OANDA_ENV
+        value: practice
+      - key: TRADING_ENABLED
+        value: "no"
+      - key: OANDA_TOKEN
+        sync: false
+      - key: OANDA_ACCOUNT_ID
+        sync: false
