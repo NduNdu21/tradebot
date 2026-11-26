@@ -168,13 +168,14 @@
   awaits the owner's rulings. The hold-out (2024-11-14 → 2026-11-13) is still unused and reserved for this strategy.
 
 ## 2026-11-25 — ICT: rule source
-- Gemini extracts for 2016 Mentorship Month 1, Month 3 and 2/8 of Month 4 saved verbatim in `docs/ict-extracts/`.
+- Gemini extracts for 2016 Mentorship Month 1, Month 3 and 2/8 of Month 4 were used as source notes (removed from
+  the repo on 2026-11-26, see below).
   None of them define CHoCH/MSS; they teach turtle soup → structure break → order block / FVG entry.
 - Owner's choice: keep the sweep → CHoCH → FVG model and fill the CHoCH/MSS rules from the 2022 ICT Mentorship
   (41-episode YouTube playlist, Jan–Jun 2022) before writing any rules.
 
 ## 2026-11-25 — ICT: market
-- 2022 Mentorship Ep 1–10 extract saved in `docs/ict-extracts/2022-mentorship-ep01-10.md`. Gemini states it did not
+- A Gemini extract of 2022 Mentorship Ep 1–10 was used as source notes (removed 2026-11-26). Gemini states it did not
   watch the videos, so core rules are to be checked against the videos before they go into the strategy.
 - Owner's choice: test on US index CFDs (the model is taught on NQ/ES futures), not forex.
 - Checked on the OANDA practice API: NAS100_USD, SPX500_USD, US30_USD, US2000_USD are available, with M5 and M1
@@ -465,3 +466,12 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   timeout (orders and closes stay single-attempt); the job exits 1 if any index errors or a broker request fails;
   early-close days (no 15:00 NY candle) are flagged in the log and reported separately from criterion 1 in `compare`.
 - Nothing has been deployed and no order has been placed.
+
+## 2026-11-26 — ICT source notes removed before making the repo public
+- To deploy on Render (whose GitHub app can't see this private repo), the owner chose to make the repo public.
+  The four Gemini extract files (2016 Mentorship Months 1, 3 and part of 4; 2022 Mentorship Ep 1–10) were detailed
+  summaries of course material, so they were stripped from the whole git history (`git filter-branch`) and
+  force-pushed. Commit IDs before this date changed.
+- Kept: `docs/ict-extracts/2022-verification.md` (Claude's own analysis with short, timestamped quotes and video IDs)
+  and `docs/strategy-ict.md`, which cite episodes and timestamps.
+
