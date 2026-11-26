@@ -146,7 +146,7 @@ def main(now_utc: datetime | None = None) -> None:
     try:
         cfg = load_config()   # raises unless OANDA_ENV is "practice"; no request is made before this
         client = make_client(cfg)
-        enabled = os.getenv("TRADING_ENABLED", "no").strip().lower() in ("yes", "true", "1")
+        enabled = os.getenv("TRADING_ENABLED") == "yes"   # exactly "yes"; anything else is a dry run
         with redirect_stdout(sys.stderr):   # keep stdout for the JSON log only (download helpers print)
             records = run_once(now_utc, client, cfg["account_id"], enabled, fetch=fetch_h1)
     except Exception as err:   # the message never carries the token: config errors name the variable only

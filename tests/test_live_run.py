@@ -139,6 +139,15 @@ class RunOnceTests(unittest.TestCase):
         self.assertEqual((d["NAS100_USD"]["action"], d["NAS100_USD"]["reason"]), ("none", "no close yet"))
         self.assertEqual(d["SPX500_USD"]["action"], "buy")
 
+    def test_nan_close_today_skips_index(self):
+        h1 = make_h1(RISING)
+        today_1500 = pd.Timestamp(f"{TODAY} 15:00", tz="America/New_York").tz_convert("UTC")
+        h1.loc[today_1500, ["bid_c", "ask_c"]] = np.nan   # the candle exists but its close is missing
+        _, recs = self.run_once(fetch=fake_fetch({"NAS100_USD": h1}))
+        d = decisions(recs)["NAS100_USD"]
+        self.assertEqual((d["action"], d["reason"]), ("none", "no close yet"))
+        self.assertEqual(decisions(recs)["SPX500_USD"]["action"], "buy")
+
     def test_second_run_same_day_is_noop(self):
         _, first = self.run_once()
         self.assertEqual(decisions(first)["SPX500_USD"]["action"], "buy")
@@ -196,6 +205,22 @@ class MainTests(unittest.TestCase):
         self.assertEqual(len(lines), 5)            # header + 4 indices
         self.assertEqual(lines[0]["kind"], "header")
         self.assertEqual(client.names().count("OrderCreate"), 0)   # TRADING_ENABLED=no
+
+    def orders_with(self, value):
+        env = {k: v for k, v in self.ENV.items() if k != "TRADING_ENABLED"}
+        if value is not None:
+            env["TRADING_ENABLED"] = value
+        client = FakeClient({"OrderCreate": FILL})
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(L, "make_client", return_value=client), \
+                mock.patch.object(L, "fetch_h1", fake_fetch()), \
+                redirect_stdout(io.StringIO()):
+            L.main(now_utc=NOW)
+        return client.names().count("OrderCreate")
+
+    def test_only_exactly_yes_enables_trading(self):
+        self.assertEqual(self.orders_with("yes"), 1)
+        for value in ("true", "1", "YES", " yes ", "", None):
+            self.assertEqual(self.orders_with(value), 0, repr(value))
 
     def test_refuses_live_env(self):
         make = mock.Mock()
