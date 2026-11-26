@@ -32,7 +32,7 @@ Every choice and its reason is logged in `docs/decisions.md`, and results in `do
 | 3 | ICT liquidity sweep → market structure shift → fair value gap, intraday | NAS100_USD, SPX500_USD | **Failed** its development test (2026-11-25): primary mean R −0.15 (n 231), rescue −0.10 (n 269); hold-out not run. Rules in `docs/strategy-ict.md`, results in `docs/backtests.md`. |
 | 4 | Multi-asset trend (indices, bonds, metals, FX), daily | 24 CFDs and FX pairs | **Failed** its development test (2026-11-25): Sharpe −0.10 (needed ≥ 0.4). Price moves alone made Sharpe 0.38; OANDA's financing markups (2.5% a year on index and bond CFDs) and spreads turned it negative. Hold-out not run. Rules in `docs/strategy-multi-asset-trend.md`. |
 | 5 | Turn of the month (long day −2 close → day +3 close), US index CFDs | SPX500, NAS100, US30, US2000 | **Failed** its development test (2026-11-25): Sharpe −0.09, below random timing (p95 0.52). In 2006–2024 the turn-of-month days earned less than an average day; the month's last day averaged −0.09%. Hold-out not run. Rules in `docs/strategy-turn-of-month.md`. |
-| 6 | Short-term mean reversion in an uptrend (buy a 5-day-low close above the 200-day average, sell above the 5-day average), US index CFDs | SPX500, NAS100, US30, US2000 | **Passed** its development test (2026-11-25): Sharpe 0.54, 1,298 trades, 71% winners, beat random entries (p95 0.48). **Passed the hold-out** (2024-11 → 2026-11): Sharpe 1.82, 166 trades, max drawdown 4.1%. Next: demo trading. Rules in `docs/strategy-mean-reversion.md`. |
+| 6 | Short-term mean reversion in an uptrend (buy a 5-day-low close above the 200-day average, sell above the 5-day average), US index CFDs | SPX500, NAS100, US30, US2000 | **Passed** its development test (2026-11-25): Sharpe 0.54, 1,298 trades, 71% winners, beat random entries (p95 0.48). **Passed the hold-out** (2024-11 → 2026-11): Sharpe 1.82, 166 trades, max drawdown 4.1%. Demo trading is built (dry run by default, not yet deployed). Rules in `docs/strategy-mean-reversion.md`. |
 
 The hold-out period (2024-11-14 → 2026-11-13) has now been used, once, by strategy 6. Any future strategy needs new out-of-sample data, such as live demo results.
 
@@ -49,6 +49,7 @@ The hold-out period (2024-11-14 → 2026-11-13) has now been used, once, by stra
 | `src/checks/` | Planted-edge tests of the backtesters. |
 | `src/tom/` | Strategy 5: NYSE calendar, turn-of-month trades, random-timing control (`python -m src.tom.evaluate`). |
 | `src/multi/` | Strategy 4: multi-asset universe, CFD financing model, evaluation (`python -m src.multi.evaluate`). |
+| `src/live/` | Strategy 6 demo trading: the daily job (`python -m src.live.run`, dry run unless `TRADING_ENABLED=yes`) and the backtest comparison report (`python -m src.live.compare`). Deployed by `render.yaml` (not yet deployed). |
 | `src/ict/` | Strategy 3: ICT sessions, swings, setups, M1 fills, evaluation. |
 | `src/experiments.py`, `src/diagnostics.py` | Strategy 1's walk-forward, controls and post-mortem. |
 | `docs/` | Strategy rules, decisions log, backtest results, ICT source material. |
@@ -57,6 +58,8 @@ The hold-out period (2024-11-14 → 2026-11-13) has now been used, once, by stra
 python -m unittest              # run the tests
 python -m src.experiments       # strategy 1 walk-forward and controls (cached in data/experiments/)
 python -m src.diagnostics       # strategy 1 diagnostics
+python -m src.live.run          # strategy 6 daily demo job (dry run unless TRADING_ENABLED=yes)
+python -m src.live.compare --since YYYY-MM-DD   # compare demo fills with the backtest
 ```
 
 ## Strategy 1 in brief

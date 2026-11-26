@@ -1,7 +1,10 @@
 """Tests for src.download that don't need network access."""
 import unittest
+from unittest import mock
 
-from src.download import COLUMNS, candle_to_row, output_path
+import requests
+
+from src.download import COLUMNS, candle_to_row, output_path, request_with_retry
 
 
 class CandleToRowTest(unittest.TestCase):
@@ -22,6 +25,22 @@ class CandleToRowTest(unittest.TestCase):
 class OutputPathTest(unittest.TestCase):
     def test_download_granularity_in_filename(self):
         self.assertEqual(output_path("NAS100_USD", "M1"), "data/NAS100USD_M1.csv")
+
+
+class RequestWithRetryTest(unittest.TestCase):
+    def test_retries_after_requests_connection_error_then_succeeds(self):
+        client = mock.Mock()
+        client.request.side_effect = [requests.exceptions.ConnectionError("reset"), {"candles": []}]
+        with mock.patch("src.download.time.sleep") as sleep:
+            self.assertEqual(request_with_retry(client, object()), {"candles": []})
+        self.assertEqual(client.request.call_count, 2)
+        sleep.assert_called_once()
+
+    def test_retries_after_timeout(self):
+        client = mock.Mock()
+        client.request.side_effect = [requests.exceptions.Timeout("slow"), {"ok": 1}]
+        with mock.patch("src.download.time.sleep"):
+            self.assertEqual(request_with_retry(client, object()), {"ok": 1})
 
 
 if __name__ == "__main__":

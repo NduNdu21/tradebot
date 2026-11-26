@@ -4,7 +4,7 @@ Strategy: ICT liquidity sweep → market structure shift → FVG, intraday on US
   
 ## Rules  
 - Never place live orders. OANDA_ENV must be "practice".  
-- Read credentials from .env only. Never print or log the token.  
+- Read credentials from .env only. Never print or log the token. On the Render server OANDA_TOKEN and OANDA_ACCOUNT_ID are Render secret environment variables instead, and OANDA_ENV is a plain environment variable set to practice (owner approved the cloud host 2026-11-26).  
 - Build order: data download -> backtester -> signals -> demo execution.  
 - Keep code simple and readable; explain trade logic in comments.  
 - Write a test for every strategy rule.  
