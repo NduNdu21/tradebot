@@ -20,7 +20,7 @@ import pandas as pd
 from src.config import load_config
 from src.live.broker import Broker
 from src.live.decide import decide
-from src.live.market import fetch_h1, todays_close_ready
+from src.live.market import early_close_dates, fetch_h1, todays_close_ready
 from src.meanrev.run import signal_and_exec
 from src.tom.nyse import trading_days
 from src.tom.run import INSTRUMENTS, PRECISION, RISK_GBP, latest_before
@@ -36,7 +36,7 @@ def utc_now() -> datetime:
 
 
 def make_client(cfg: dict):
-    return oandapyV20.API(access_token=cfg["token"], environment=cfg["env"])
+    return oandapyV20.API(access_token=cfg["token"], environment=cfg["env"], request_params={"timeout": 30})
 
 
 def in_window(now_utc: datetime, nyse_days) -> tuple[bool, str]:
@@ -79,7 +79,7 @@ def _error(now_utc: datetime, err: Exception, instrument=None, fatal=False) -> d
 def _handle_index(instrument, now_utc, today, days, broker, fetch, client, gbp_h1, usd_to_gbp, mine, blocked) -> dict:
     """Decide and act for one index; returns its log record."""
     base = {"instrument": instrument, "close": None, "entry_signal": None, "exit_signal": None,
-            "units": 0.0, "status": "no_order"}
+            "units": 0.0, "status": "no_order", "early_close": False}
 
     def skip(reason):
         return _record("decision", now_utc, **{**base, "action": "none", "reason": reason})
@@ -91,10 +91,13 @@ def _handle_index(instrument, now_utc, today, days, broker, fetch, client, gbp_h
     # Stale-data guard: decide() trusts that the last close is today's.
     if not todays_close_ready(h1, today, now_utc) or pd.isna(closes.iloc[-1]):
         return skip("no close yet")
+    # No 15:00 candle today means the signal came from the early-close fallback (the last candle of the short day).
+    base["early_close"] = today in early_close_dates(h1)
 
     open_trade = mine.get(instrument)
     closed = broker.closed_today(instrument, today) if open_trade is None else False
-    units = units_for(h1, gbp_h1, today)
+    # Sizing is only needed for an entry; with a trade open, a sizing failure must never block the exit.
+    units = units_for(h1, gbp_h1, today) if open_trade is None else 0.0
     d = decide(instrument, closes, days, today, open_trade, closed, units)
 
     result = {}
@@ -153,7 +156,8 @@ def main(now_utc: datetime | None = None) -> None:
         records = [_error(now_utc, err, fatal=True)]
     for rec in records:
         print(json.dumps(rec, default=str))
-    if any(r.get("fatal") for r in records):
+    # Exit 1 on a header-level failure, a per-index error or a failed broker request, so the cron run shows red.
+    if any(r.get("fatal") or r.get("status") in ("error", "failed") for r in records):
         raise SystemExit(1)
 
 

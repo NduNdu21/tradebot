@@ -453,8 +453,15 @@ nothing goes to the hold-out, which has not been run. Details are in `docs/backt
   what it would do); notional per order capped at GBP 10,000; at most one tagged trade per index; long-only
   fill-or-kill market orders; an untagged or duplicate trade on an index blocks that index with a warning.
 - Rollout, each step needing the owner's go-ahead: deploy with `TRADING_ENABLED=no`; dry run for at least 3 NYSE
-  days and check the logs; then switch `TRADING_ENABLED` to `yes`.
+  days and check the logs; then switch `TRADING_ENABLED` to `yes`. The switch is made by committing
+  `TRADING_ENABLED` `value: "yes"` in `render.yaml` (a dashboard-only change can be reset to "no" by a later
+  blueprint sync, which fails safe).
 - Success criteria, fixed now and judged after 3 months: (1) every backtest trade in the period appears live on the
   same NY days, apart from counted missed runs; (2) the median live fill is within 2x the backtest's assumed spread
   plus slippage of its 16:00-open price; (3) no safety-rail breaches. Profitability is reported, not judged.
+- Run `compare` with `--since` set to the go-live date: the backtest walk starts flat, so the first trade after an
+  earlier `--since` can show a false mismatch.
+- Hardening after the whole-branch review: API reads retry on `requests` network errors and all clients use a 30 s
+  timeout (orders and closes stay single-attempt); the job exits 1 if any index errors or a broker request fails;
+  early-close days (no 15:00 NY candle) are flagged in the log and reported separately from criterion 1 in `compare`.
 - Nothing has been deployed and no order has been placed.

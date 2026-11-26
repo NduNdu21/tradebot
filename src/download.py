@@ -17,6 +17,7 @@ import os
 import time
 
 import oandapyV20
+import requests
 import oandapyV20.endpoints.instruments as instruments
 from oandapyV20.exceptions import V20Error
 
@@ -50,7 +51,7 @@ def request_with_retry(client, endpoint):
     for attempt in range(MAX_RETRIES):
         try:
             return client.request(endpoint)
-        except (V20Error, ConnectionError) as err:
+        except (V20Error, ConnectionError, requests.exceptions.RequestException) as err:
             if attempt == MAX_RETRIES - 1:
                 raise
             print(f"  request failed ({err.__class__.__name__}), retrying")

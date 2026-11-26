@@ -123,5 +123,8 @@ class Broker:
             return {"status": "failed", "reason": reason}
         result = {"status": "sent", "transaction_id": fill["id"], "price": fill.get("price")}
         if what == "buy":
-            result["trade_id"] = fill["tradeOpened"]["tradeID"]
+            trade_id = (fill.get("tradeOpened") or {}).get("tradeID")
+            if trade_id is None:   # the order did fill; do not crash after a real execution
+                log.warning("buy %s filled (transaction %s) but the fill has no tradeOpened", instrument, fill["id"])
+            result["trade_id"] = trade_id
         return result

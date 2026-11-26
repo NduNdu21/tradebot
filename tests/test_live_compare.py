@@ -65,6 +65,24 @@ class TestCompare(unittest.TestCase):
         self.assertIn("FAIL", report(match(lv, bt([BT]))))
         self.assertIn("FAIL", report(match(live([]), bt([BT]))))   # missed trade fails criterion 1
 
+    def test_early_close_column_flags_backtest_or_live_day(self):
+        lv = live([("NAS100_USD", "2026-09-01", "2026-09-04", 100.1, 101.9)])
+        self.assertEqual(list(match(lv, bt([BT]))["early_close"]), [False])
+        early = {("NAS100_USD", pd.Timestamp("2026-09-04"))}          # the exit day
+        self.assertEqual(list(match(lv, bt([BT]), early)["early_close"]), [True])
+        other = {("SPX500_USD", pd.Timestamp("2026-09-04"))}          # another instrument: not flagged
+        self.assertEqual(list(match(lv, bt([BT]), other)["early_close"]), [False])
+        lv_only = live([("NAS100_USD", "2026-09-01", None, 100.1, None)])   # open live trade, entry on early day
+        self.assertEqual(list(match(lv_only, bt([]), {("NAS100_USD", pd.Timestamp("2026-09-01"))})["early_close"]), [True])
+
+    def test_report_leaves_early_close_rows_out_of_criterion_1(self):
+        early = {("NAS100_USD", pd.Timestamp("2026-09-04"))}
+        out = match(live([]), bt([BT]), early)        # a missed trade, but on an early-close day
+        text = report(out)
+        self.assertIn("Criterion 1 (signal agreement): PASS", text)
+        self.assertIn("1 trades on early-close days, reported separately", text)
+        self.assertIn("0 trades on early-close days", report(match(live([]), bt([BT]))))
+
 
 if __name__ == "__main__":
     unittest.main()

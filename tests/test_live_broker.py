@@ -84,6 +84,23 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(untagged, {"SPX500_USD"})
         self.assertEqual(list(tagged), ["NAS100_USD"])
 
+    def test_two_tagged_trades_on_one_index_block_it(self):
+        c = FakeClient({"OpenTrades": {"trades": [
+            trade("1", "SPX500_USD", tag=TAG, comment="entry 2026-12-01"),
+            trade("2", "SPX500_USD", tag=TAG, comment="entry 2026-11-30")]}})
+        tagged, untagged = Broker(c, "acc", True).open_trades()
+        self.assertIn("SPX500_USD", untagged)
+
+    def test_fill_without_trade_opened_is_sent_with_no_trade_id(self):
+        c = FakeClient({"OrderCreate": {"orderFillTransaction": {"id": "55", "price": "100.5"}}})
+        with self.assertLogs("src.live.broker", level="WARNING"):
+            logging.disable(logging.NOTSET)
+            try:
+                r = Broker(c, "acc", True).buy("SPX500_USD", 1.0, date(2026, 12, 1), 100)
+            finally:
+                logging.disable(logging.CRITICAL)
+        self.assertEqual((r["status"], r["trade_id"], r["transaction_id"]), ("sent", None, "55"))
+
     def test_tagged_with_bad_comment_counts_as_untagged(self):
         c = FakeClient({"OpenTrades": {"trades": [trade("1", "US30_USD", tag=TAG, comment="hello")]}})
         tagged, untagged = Broker(c, "acc", True).open_trades()

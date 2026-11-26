@@ -190,6 +190,30 @@ class RunOnceTests(unittest.TestCase):
         self.assertEqual(decisions(recs), {})
 
 
+class EarlyCloseAndSizingTests(unittest.TestCase):
+    def test_early_close_flag_in_decision_records(self):
+        _, recs = RunOnceTests().run_once()
+        self.assertTrue(all(r["early_close"] is False for r in decisions(recs).values()))
+        h1 = make_h1(RISING, last_hour=12)   # today stops at 12:00: no 15:00 candle, an early-close day
+        now = datetime(2026, 12, 1, 21, 2, tzinfo=timezone.utc)
+        recs = L.run_once(now, FakeClient({"OrderCreate": FILL}), "acc", False,
+                          fetch=fake_fetch({"NAS100_USD": h1}))
+        self.assertTrue(decisions(recs)["NAS100_USD"]["early_close"])
+        self.assertFalse(decisions(recs)["US30_USD"]["early_close"])
+
+    def test_open_trade_is_closed_even_if_units_for_raises(self):
+        held = trade("77", "SPX500_USD", "1.5", tag=TAG, comment="entry 2026-11-10")   # held past MAX_HOLD: time stop
+        client = FakeClient({"OrderCreate": FILL, "OpenTrades": {"trades": [held]},
+                             "TradeClose": {"orderFillTransaction": {"id": "60", "price": "101.0"}}})
+        with mock.patch.object(L, "units_for", side_effect=RuntimeError("no atr")):
+            recs = L.run_once(NOW, client, "acc", True, fetch=fake_fetch())
+        spx = decisions(recs)["SPX500_USD"]
+        self.assertEqual((spx["action"], spx["reason"], spx["status"]), ("close", "time stop", "sent"))
+        self.assertIn("TradeClose", client.names())
+        # the other indices have no open trade, so their sizing failure is isolated as per-index errors
+        self.assertEqual(len([r for r in recs if r["kind"] == "error"]), 3)
+
+
 class MainTests(unittest.TestCase):
     ENV = {"OANDA_TOKEN": "secret-xyz", "OANDA_ACCOUNT_ID": "acc", "OANDA_ENV": "practice", "TRADING_ENABLED": "no"}
 
@@ -239,6 +263,41 @@ class MainTests(unittest.TestCase):
                 redirect_stdout(out):
             L.main(now_utc=datetime(2026, 12, 1, 20, 2, tzinfo=timezone.utc))   # returns normally = exit 0
         self.assertEqual(json.loads(out.getvalue())["kind"], "header")
+
+    def run_main(self, fetch):
+        client = FakeClient({"OrderCreate": FILL})
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, self.ENV), mock.patch.object(L, "make_client", return_value=client), \
+                mock.patch.object(L, "fetch_h1", fetch), redirect_stdout(out):
+            try:
+                L.main(now_utc=NOW)
+                code = 0
+            except SystemExit as e:
+                code = e.code
+        return code, [json.loads(x) for x in out.getvalue().splitlines()]
+
+    def test_normal_run_exits_zero(self):
+        code, _ = self.run_main(fake_fetch())
+        self.assertEqual(code, 0)
+
+    def test_index_error_exits_one_but_others_processed(self):
+        code, lines = self.run_main(fake_fetch({"NAS100_USD": RuntimeError("boom")}))
+        self.assertEqual(code, 1)
+        self.assertEqual(len([r for r in lines if r["kind"] == "decision"]), 3)
+
+    def test_failed_broker_status_exits_one(self):
+        client = FakeClient(raise_on="OrderCreate")
+        with mock.patch.dict(os.environ, {**self.ENV, "TRADING_ENABLED": "yes"}), \
+                mock.patch.object(L, "make_client", return_value=client), \
+                mock.patch.object(L, "fetch_h1", fake_fetch()), redirect_stdout(io.StringIO()):
+            with self.assertRaises(SystemExit) as cm:
+                L.main(now_utc=NOW)
+        self.assertEqual(cm.exception.code, 1)
+
+    def test_client_has_timeout(self):
+        with mock.patch.object(L.oandapyV20, "API") as api:
+            L.make_client({"token": "t", "env": "practice"})
+        self.assertEqual(api.call_args.kwargs["request_params"], {"timeout": 30})
 
     def test_header_failure_exits_one(self):
         client = FakeClient(raise_on="OpenTrades")

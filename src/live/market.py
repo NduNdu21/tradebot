@@ -48,3 +48,12 @@ def todays_close_ready(h1: pd.DataFrame, today: date, now_utc: datetime) -> bool
         return False
     now_ny = pd.Timestamp(now_utc).tz_convert(NY)
     return now_ny.hour >= READY_HOUR and opens.max().hour <= EARLY_CLOSE_LAST_OPEN_HOUR
+
+
+def early_close_dates(h1: pd.DataFrame) -> set:
+    """New York dates that have candles but none opening at 15:00: early-close days (the signal then
+    comes from the last candle of the shortened session)."""
+    ny_index = h1.index.tz_convert(NY)
+    all_days = set(ny_index.date)
+    full_days = {t.date() for t in ny_index if t.hour == SIGNAL_HOUR}
+    return all_days - full_days

@@ -7,7 +7,7 @@ from unittest import mock
 
 import pandas as pd
 
-from src.live.market import fetch_h1, rows_to_frame, todays_close_ready
+from src.live.market import early_close_dates, fetch_h1, rows_to_frame, todays_close_ready
 
 NY = "America/New_York"
 TODAY = date(2026, 11, 25)
@@ -70,6 +70,14 @@ class TestFetchH1(unittest.TestCase):
         self.assertEqual(out.getvalue(), "")
         self.assertIn("progress", err.getvalue())
         self.assertEqual(len(df), 1)
+
+
+class EarlyCloseDatesTests(unittest.TestCase):
+    def test_day_without_1500_candle_is_early_close(self):
+        stamps = [pd.Timestamp(f"2026-11-24 {h}:00", tz=NY) for h in (10, 14, 15)]
+        stamps += [pd.Timestamp(f"2026-11-27 {h}:00", tz=NY) for h in (10, 12)]   # day after Thanksgiving
+        h1 = pd.DataFrame({"x": 1.0}, index=pd.DatetimeIndex(stamps).tz_convert("UTC"))
+        self.assertEqual(early_close_dates(h1), {date(2026, 11, 27)})
 
 
 if __name__ == "__main__":

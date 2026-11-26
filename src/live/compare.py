@@ -27,10 +27,10 @@ NY = ZoneInfo("America/New_York")
 DAYS_BACK = 430
 FILL_TOLERANCE = 2.0   # criterion 2: median live cost within 2x the backtest's assumed cost
 COLUMNS = ["instrument", "bt_entry", "bt_exit", "live_entry", "live_exit", "status",
-           "entry_fill_diff_bp", "exit_fill_diff_bp", "live_cost_bp", "bt_cost_bp"]
+           "entry_fill_diff_bp", "exit_fill_diff_bp", "live_cost_bp", "bt_cost_bp", "early_close"]
 
 
-def match(live: pd.DataFrame, backtest: pd.DataFrame) -> pd.DataFrame:
+def match(live: pd.DataFrame, backtest: pd.DataFrame, early_close_days=frozenset()) -> pd.DataFrame:
     """One row per (instrument, entry day) seen in either frame, with a status.
 
     matched        both sides, same exit day
@@ -39,6 +39,9 @@ def match(live: pd.DataFrame, backtest: pd.DataFrame) -> pd.DataFrame:
                    backtest only counts trades that have exited)
     missed_live    the backtest traded, the bot did not
     extra_live     the bot traded, the backtest did not (and the trade is already closed)
+
+    early_close_days is a set of (instrument, Timestamp NY date) with no 15:00 candle. The early_close
+    column is True when any entry or exit day of the row is one of them.
     """
     lv = {(r.instrument, r.entry): r for r in live.itertuples()}
     bk = {(r.instrument, r.entry): r for r in backtest.itertuples()}
@@ -46,6 +49,7 @@ def match(live: pd.DataFrame, backtest: pd.DataFrame) -> pd.DataFrame:
     for key in sorted(set(lv) | set(bk), key=lambda k: (k[0], k[1])):
         l, b = lv.get(key), bk.get(key)
         row = dict.fromkeys(COLUMNS, np.nan)
+        row["early_close"] = False
         row["instrument"] = key[0]
         row["bt_entry"] = b.entry if b else pd.NaT
         row["bt_exit"] = b.exit if b else pd.NaT
@@ -65,12 +69,17 @@ def match(live: pd.DataFrame, backtest: pd.DataFrame) -> pd.DataFrame:
                 row["live_cost_bp"] = live_cost / b.entry_mid * 1e4
             bt_cost = (b.entry_fill - b.entry_mid) + (b.exit_mid - b.exit_fill)
             row["bt_cost_bp"] = bt_cost / b.entry_mid * 1e4
+        days = [row[c] for c in ("bt_entry", "bt_exit", "live_entry", "live_exit")]
+        row["early_close"] = any(pd.notna(d) and (key[0], pd.Timestamp(d)) in early_close_days for d in days)
         rows.append(row)
     return pd.DataFrame(rows, columns=COLUMNS)
 
 
 def report(matched: pd.DataFrame) -> str:
     """The three demo success criteria (spec, 'Demo success criteria') with pass/fail."""
+    early = matched["early_close"].fillna(False).astype(bool) if "early_close" in matched else pd.Series(False, index=matched.index)
+    n_early = int(early.sum())
+    matched = matched[~early]   # early-close days (shortened session, different signal candle) are judged apart
     counts = matched["status"].value_counts()
     n = lambda s: int(counts.get(s, 0))
     bad = n("missed_live") + n("extra_live") + n("exit_mismatch")
@@ -78,6 +87,7 @@ def report(matched: pd.DataFrame) -> str:
              ("matched", "matched_open", "exit_mismatch", "missed_live", "extra_live")), ""]
     lines.append(f"Criterion 1 (signal agreement): {'PASS' if bad == 0 else 'FAIL'} "
                  f"- {bad} missed, extra or exit-mismatched trade(s)")
+    lines.append(f"{n_early} trades on early-close days, reported separately")
     pairs = matched.dropna(subset=["live_cost_bp", "bt_cost_bp"])
     if pairs.empty:
         lines.append("Criterion 2 (fill quality): n/a - no closed matched trades yet")
@@ -111,9 +121,11 @@ def live_trades(client, account_id: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["instrument", "entry", "exit", "entry_price", "exit_price"])
 
 
-def backtest_trades(client, today: date, since: date) -> pd.DataFrame:
-    """What the backtest rules would have done on recent data, from `since`."""
-    from src.live.market import fetch_h1
+def backtest_trades(client, today: date, since: date):
+    """What the backtest rules would have done on recent data, from `since`.
+
+    Returns (trades frame, set of (instrument, Timestamp) early-close days seen in the fetched H1)."""
+    from src.live.market import early_close_dates, fetch_h1
     from src.meanrev.run import DEV, Instrument, build, signals, walk
     from src.tom.nyse import trading_days
     from src.tom.run import INSTRUMENTS
@@ -124,9 +136,11 @@ def backtest_trades(client, today: date, since: date) -> pd.DataFrame:
     gbp = daily_bars(fetch_h1(client, "GBP_USD", today, days_back=DAYS_BACK))
     rates = load_rates()
     dev_slip = {i: m.slip for i, m in build()[0].items()}   # slippage = half the median spread over DEV
-    rows = []
+    rows, early = [], set()
     for inst in INSTRUMENTS:
-        m = Instrument(inst, fetch_h1(client, inst, today, days_back=DAYS_BACK), gbp, rates, days, DEV)
+        h1 = fetch_h1(client, inst, today, days_back=DAYS_BACK)
+        early |= {(inst, pd.Timestamp(d)) for d in early_close_dates(h1)}
+        m = Instrument(inst, h1, gbp, rates, days, DEV)
         m.slip = dev_slip[inst]
         entry, exit_, _ = signals(m.close)
         for e, x in walk(entry, exit_, m.can_trade):
@@ -134,8 +148,9 @@ def backtest_trades(client, today: date, since: date) -> pd.DataFrame:
                 rows.append({"instrument": inst, "entry": m.days[e], "exit": m.days[x],
                              "entry_mid": m.mid[e], "exit_mid": m.mid[x],
                              "entry_fill": m.ask[e] + m.slip, "exit_fill": m.bid[x] - m.slip})
-    return pd.DataFrame(rows, columns=["instrument", "entry", "exit", "entry_mid", "exit_mid",
-                                       "entry_fill", "exit_fill"])
+    frame = pd.DataFrame(rows, columns=["instrument", "entry", "exit", "entry_mid", "exit_mid",
+                                        "entry_fill", "exit_fill"])
+    return frame, early
 
 
 def main(argv=None) -> None:
@@ -146,13 +161,13 @@ def main(argv=None) -> None:
     ap.add_argument("--since", required=True, help="YYYY-MM-DD, first NY entry date to compare")
     since = date.fromisoformat(ap.parse_args(argv).since)
     cfg = load_config()   # refuses anything but practice; the token is never printed
-    client = oandapyV20.API(access_token=cfg["token"], environment=cfg["env"])
+    client = oandapyV20.API(access_token=cfg["token"], environment=cfg["env"], request_params={"timeout": 30})
     today = datetime.now(NY).date()
     with redirect_stdout(sys.stderr):   # download helpers print progress
         live = live_trades(client, cfg["account_id"])
-        bt = backtest_trades(client, today, since)
+        bt, early = backtest_trades(client, today, since)
     live = live[live["entry"] >= pd.Timestamp(since)]
-    out = match(live, bt)
+    out = match(live, bt, early)
     pd.set_option("display.width", 200)
     print(out.to_string(index=False))
     print()
